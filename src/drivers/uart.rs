@@ -170,7 +170,7 @@ pub fn puts(s: &str) {
     for c in s.bytes() {
         putc(c);
     }
-    flush();
+    flush();  // Ensure the output is flushed
 }
 
 /**
@@ -179,13 +179,13 @@ pub fn puts(s: &str) {
 pub fn print_hex(value: u32) {
     const HEX_CHARS: &[u8; 16] = b"0123456789ABCDEF";
     let mut buffer = [0; 11];  // "0x" + 8 hex digits + null terminator
-    let mut value =value;
+    
     buffer[0] = b'0';
     buffer[1] = b'x';
     
     for i in (2..10).rev() {
         buffer[i] = HEX_CHARS[(value & 0xF) as usize];
-        value >>= 4;
+        value >> 4;
     }
     
     puts(core::str::from_utf8(&buffer[0..10]).unwrap());
