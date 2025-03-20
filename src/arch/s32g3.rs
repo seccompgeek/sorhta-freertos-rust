@@ -6,7 +6,7 @@ use cortex_a::asm;
 
 use crate::drivers::uart;
 
-use super::{enable_interrupts, gic};
+use super::{enable_interrupts, exceptions::init_vectors, gic};
 
 // S32G3 base addresses for key peripherals
 pub const UART_BASE: usize = 0x401C8000;  // LinFLEX UART0 base address
@@ -121,6 +121,7 @@ pub mod timer {
 // Initialize S32G3 peripheral clocks and basic hardware
 pub fn init() {
     // Initialize system timer
+    init_vectors();
     gic::init();
     uart::init();
     enable_interrupts();

@@ -2,11 +2,11 @@
 // See ARM Architecture Reference Manual ARMv8 for details on exception model
 
 use core::arch::global_asm;
-use crate::println;
-use crate::arch::gic;
 use core::arch::asm;
+use crate::drivers::uart;
+use crate::arch::gic;
 
-// Define exception vector table for AArch64
+// Define exception vector table for AArch64 with the U-Boot like approach
 global_asm!(
     ".section .text.exceptions",
     ".align 11",  // 2048-byte alignment for vector table
@@ -16,117 +16,230 @@ global_asm!(
     "exception_vector_table:",
     
     // Current EL with SP0
-    "// Current EL with SP0",
     ".align 7",  // 128-byte alignment for each entry
-    "b el1_sp0_sync",        // Synchronous
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_sync_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_sp0_irq",         // IRQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_irq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_sp0_fiq",         // FIQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_fiq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_sp0_serror",      // SError
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_error_handler",
+    "b exception_exit",
     
     // Current EL with SPx
-    "// Current EL with SPx",
     ".align 7",
-    "b el1_sync",            // Synchronous
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_sync_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_irq",             // IRQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_irq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_fiq",             // FIQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_fiq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b el1_serror",          // SError
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_error_handler",
+    "b exception_exit",
     
     // Lower EL using AArch64
-    "// Lower EL using AArch64",
     ".align 7",
-    "b lower_el_aarch64_sync", // Synchronous
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_sync_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch64_irq",  // IRQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_irq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch64_fiq",  // FIQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_fiq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch64_serror", // SError
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_error_handler",
+    "b exception_exit",
     
     // Lower EL using AArch32
-    "// Lower EL using AArch32",
     ".align 7",
-    "b lower_el_aarch32_sync", // Synchronous
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_sync_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch32_irq",  // IRQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_irq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch32_fiq",  // FIQ
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_fiq_handler",
+    "b exception_exit",
+    
     ".align 7",
-    "b lower_el_aarch32_serror", // SError
+    "stp x29, x30, [sp, #-16]!",
+    "bl _exception_entry",
+    "bl do_error_handler",
+    "b exception_exit",
     
-    // Exception handlers
-    "el1_sp0_sync:",
-    "   bl exception_handler_sp0_sync",
-    "   eret",
+    // Exception handling routines
+    "_exception_entry:",
+    "   stp x27, x28, [sp, #-16]!",
+    "   stp x25, x26, [sp, #-16]!",
+    "   stp x23, x24, [sp, #-16]!",
+    "   stp x21, x22, [sp, #-16]!",
+    "   stp x19, x20, [sp, #-16]!",
+    "   stp x17, x18, [sp, #-16]!",
+    "   stp x15, x16, [sp, #-16]!",
+    "   stp x13, x14, [sp, #-16]!",
+    "   stp x11, x12, [sp, #-16]!",
+    "   stp x9, x10, [sp, #-16]!",
+    "   stp x7, x8, [sp, #-16]!",
+    "   stp x5, x6, [sp, #-16]!",
+    "   stp x3, x4, [sp, #-16]!",
+    "   stp x1, x2, [sp, #-16]!",
+    "   bl _save_el_regs",
+    "   ret",
     
-    "el1_sp0_irq:",
-    "   bl exception_handler_sp0_irq",
-    "   eret",
+    "_save_el_regs:",
+    "   mrs x11, currentel",
+    "   cmp x11, #0xc    // Check if EL3",
+    "   b.eq 1f",
+    "   cmp x11, #0x8    // Check if EL2",
+    "   b.eq 2f",
+    "   cmp x11, #0x4    // Check if EL1",
+    "   b.eq 3f",
+    "1: // EL3",
+    "   mrs x1, esr_el3",
+    "   mrs x2, elr_el3",
+    "   b 4f",
+    "2: // EL2",
+    "   mrs x1, esr_el2",
+    "   mrs x2, elr_el2",
+    "   b 4f",
+    "3: // EL1",
+    "   mrs x1, esr_el1",
+    "   mrs x2, elr_el1",
+    "4: // Common",
+    "   stp x2, x0, [sp, #-16]!",
+    "   mov x0, sp",
+    "   ret",
     
-    "el1_sp0_fiq:",
-    "   bl exception_handler_sp0_fiq",
-    "   eret",
+    "exception_exit:",
+    "   ldp x2, x0, [sp], #16",
+    "   mrs x11, currentel",
+    "   cmp x11, #0xc    // Check if EL3",
+    "   b.eq 1f",
+    "   cmp x11, #0x8    // Check if EL2",
+    "   b.eq 2f",
+    "   cmp x11, #0x4    // Check if EL1",
+    "   b.eq 3f",
+    "1: // EL3",
+    "   msr elr_el3, x2",
+    "   b _restore_regs",
+    "2: // EL2",
+    "   msr elr_el2, x2",
+    "   b _restore_regs",
+    "3: // EL1",
+    "   msr elr_el1, x2",
     
-    "el1_sp0_serror:",
-    "   bl exception_handler_sp0_serror",
-    "   eret",
-    
-    "el1_sync:",
-    "   bl exception_handler_sync",
-    "   eret",
-    
-    "el1_irq:",
-    "   bl exception_handler_irq",
-    "   eret",
-    
-    "el1_fiq:",
-    "   bl exception_handler_fiq",
-    "   eret",
-    
-    "el1_serror:",
-    "   bl exception_handler_serror",
-    "   eret",
-    
-    "lower_el_aarch64_sync:",
-    "   bl exception_handler_lower_sync",
-    "   eret",
-    
-    "lower_el_aarch64_irq:",
-    "   bl exception_handler_lower_irq",
-    "   eret",
-    
-    "lower_el_aarch64_fiq:",
-    "   bl exception_handler_lower_fiq",
-    "   eret",
-    
-    "lower_el_aarch64_serror:",
-    "   bl exception_handler_lower_serror",
-    "   eret",
-    
-    "lower_el_aarch32_sync:",
-    "   bl exception_handler_lower32_sync",
-    "   eret",
-    
-    "lower_el_aarch32_irq:",
-    "   bl exception_handler_lower32_irq",
-    "   eret",
-    
-    "lower_el_aarch32_fiq:",
-    "   bl exception_handler_lower32_fiq",
-    "   eret",
-    
-    "lower_el_aarch32_serror:",
-    "   bl exception_handler_lower32_serror",
+    "_restore_regs:",
+    "   ldp x1, x2, [sp], #16",
+    "   ldp x3, x4, [sp], #16",
+    "   ldp x5, x6, [sp], #16",
+    "   ldp x7, x8, [sp], #16",
+    "   ldp x9, x10, [sp], #16",
+    "   ldp x11, x12, [sp], #16",
+    "   ldp x13, x14, [sp], #16",
+    "   ldp x15, x16, [sp], #16",
+    "   ldp x17, x18, [sp], #16",
+    "   ldp x19, x20, [sp], #16",
+    "   ldp x21, x22, [sp], #16",
+    "   ldp x23, x24, [sp], #16",
+    "   ldp x25, x26, [sp], #16",
+    "   ldp x27, x28, [sp], #16",
+    "   ldp x29, x30, [sp], #16",
     "   eret",
 );
 
-// Exception handler typedefs
-pub type ExceptionHandler = fn() -> ();
+#[no_mangle]
+extern "C" fn do_sync_handler() {
+    uart::puts("Synchronous Exception\r\n");
+}
+
+#[no_mangle]
+extern "C" fn do_irq_handler() {
+    uart::puts("IRQ Exception\r\n");
+    
+    // Get the interrupt ID
+    let irq_id = gic::get_interrupt_id();
+    
+    // Handle the interrupt
+    if irq_id < 1023 {
+        uart::puts("IRQ ID: ");
+        print_hex(irq_id as u64);
+        uart::puts("\r\n");
+        
+        // End the interrupt
+        gic::end_of_interrupt(irq_id);
+    }
+}
+
+#[no_mangle]
+extern "C" fn do_fiq_handler() {
+    uart::puts("FIQ Exception\r\n");
+}
+
+#[no_mangle]
+extern "C" fn do_error_handler() {
+    uart::puts("SError Exception\r\n");
+}
+
+// Helper function to print hex values using direct UART access
+fn print_hex(value: u64) {
+    const HEX_CHARS: [u8; 16] = [b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', 
+                                b'8', b'9', b'A', b'B', b'C', b'D', b'E', b'F'];
+    
+    uart::puts("0x");
+    
+    for i in (0..16).rev() {
+        let digit = ((value >> (i * 4)) & 0xF) as usize;
+        uart::putc(HEX_CHARS[digit]);
+    }
+}
 
 // Initialize exception vectors
 pub fn init_vectors() {
@@ -141,153 +254,7 @@ pub fn init_vectors() {
     }
 }
 
-#[no_mangle]
-extern "C" fn exception_handler_irq() {
-    // Get interrupt ID from GIC
-    let irq_id = gic::get_interrupt_id();
-    
-    // Check for spurious interrupt
-    if irq_id == 1023 {
-        return;
-    }
-    
-    // Handle the specific interrupt
-    handle_interrupt(irq_id);
-    
-    // Signal end of interrupt to GIC
-    gic::end_of_interrupt(irq_id);
-}
-
-// IRQ handler for SP0 mode
-#[no_mangle]
-extern "C" fn exception_handler_sp0_irq() {
-    exception_handler_irq();
-}
-
-// IRQ handler for lower EL AArch64
-#[no_mangle]
-extern "C" fn exception_handler_lower_irq() {
-    exception_handler_irq();
-}
-
-// IRQ handler for lower EL AArch32
-#[no_mangle]
-extern "C" fn exception_handler_lower32_irq() {
-    exception_handler_irq();
-}
-
-// FIQ handler
-#[no_mangle]
-extern "C" fn exception_handler_fiq() {
-    println!("FIQ exception occurred");
-}
-
-// SP0 FIQ handler
-#[no_mangle]
-extern "C" fn exception_handler_sp0_fiq() {
-    exception_handler_fiq();
-}
-
-// Lower EL FIQ handler (AArch64)
-#[no_mangle]
-extern "C" fn exception_handler_lower_fiq() {
-    exception_handler_fiq();
-}
-
-// Lower EL FIQ handler (AArch32)
-#[no_mangle]
-extern "C" fn exception_handler_lower32_fiq() {
-    exception_handler_fiq();
-}
-
-// Synchronous exception handler
-#[no_mangle]
-extern "C" fn exception_handler_sync() {
-    // Read exception syndrome register
-    let esr: u64;
-    unsafe {
-        asm!(
-            "mrs {x}, esr_el1",
-            x = out(reg) esr,
-            options(nostack)
-        );
-    }
-    
-    // Extract exception class (EC) from ESR
-    let ec = (esr >> 26) & 0x3F;
-    
-    match ec {
-        0x15 => println!("SVC instruction execution in AArch64"),
-        0x24 => println!("Data abort from current EL"),
-        _ => println!("Synchronous exception: ESR = 0x{:X}", esr),
-    }
-}
-
-// SP0 synchronous exception handler
-#[no_mangle]
-extern "C" fn exception_handler_sp0_sync() {
-    exception_handler_sync();
-}
-
-// Lower EL synchronous exception handler (AArch64)
-#[no_mangle]
-extern "C" fn exception_handler_lower_sync() {
-    exception_handler_sync();
-}
-
-// Lower EL synchronous exception handler (AArch32)
-#[no_mangle]
-extern "C" fn exception_handler_lower32_sync() {
-    exception_handler_sync();
-}
-
-// SError handler
-#[no_mangle]
-extern "C" fn exception_handler_serror() {
-    println!("SError exception occurred");
-}
-
-// SP0 SError handler
-#[no_mangle]
-extern "C" fn exception_handler_sp0_serror() {
-    exception_handler_serror();
-}
-
-// Lower EL SError handler (AArch64)
-#[no_mangle]
-extern "C" fn exception_handler_lower_serror() {
-    exception_handler_serror();
-}
-
-// Lower EL SError handler (AArch32)
-#[no_mangle]
-extern "C" fn exception_handler_lower32_serror() {
-    exception_handler_serror();
-}
-
 // Vector base address (defined in assembly)
 extern "C" {
     static exception_vector_table: u64;
-}
-
-// Handle specific interrupt based on ID
-fn handle_interrupt(irq_id: u32) {
-    match irq_id {
-        // UART interrupt
-        33 => {
-            println!("UART Interrupt received");
-            // Handle UART interrupt
-        },
-        
-        // Timer interrupt
-        27 => {
-            println!("Timer Interrupt received");
-            // Handle timer interrupt
-        },
-        
-        // Generic interrupt handler for other IRQs
-        _ => {
-            println!("Received IRQ: {}", irq_id);
-        }
-    }
 }

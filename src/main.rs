@@ -14,6 +14,7 @@ use core::arch::global_asm;
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use arch::s32g3;
 // Import for heap allocator
 use linked_list_allocator::LockedHeap;
 
@@ -134,23 +135,11 @@ extern "C" fn kernel_init() -> ! {
         ALLOCATOR.lock().init(heap_start, heap_size);
     }
     
-    // Initialize the UART for our console output
-    drivers::uart::init();
+    s32g3::init();
     
     // Print initial hello message
     println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
-    
-    // Initialize S32G3 peripherals
-    arch::s32g3::init();
-    
-    // Setup and initialize the GIC (Generic Interrupt Controller)
-    arch::gic::init();
-    
-    // Setup exception vectors
-    arch::exceptions::init_vectors();
-    
-    // Enable interrupts
-    arch::enable_interrupts();
+
     
     // Print CPU information
     unsafe {
