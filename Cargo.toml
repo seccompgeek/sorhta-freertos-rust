@@ -3,6 +3,8 @@ name = "freertos-s32g3-rust"
 version = "0.1.0"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
+description = "A Rust based version of FreeRTOS for S32G3 Cortex-A53"
+homepage = "https://github.com/seccompgeek/sorhta-freertos-rust"
 
 [dependencies]
 cortex-a = "8.1.0"
