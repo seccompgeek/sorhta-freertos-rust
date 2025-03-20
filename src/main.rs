@@ -40,15 +40,6 @@ global_asm!(
     "   // Disable all interrupts",
     "   msr daifset, #0xf",
     "",
-    "   // Disable caches and mmu",
-    "   mrs x0, sctlr_el1",
-    "   bic x0, x0, #(1 << 0)",
-    "   bic x0, x0, #(1 << 2)",
-    "   bic x0, x0, #(1 << 12)",
-    "   msr sctlr_el1, x0",
-    "   dsb sy",
-    "   isb",
-
     "   // Set up stack pointer for each CPU core",
     "   mrs x1, mpidr_el1",
     "   and x1, x1, #0xFF        // Extract CPU ID",
@@ -143,16 +134,23 @@ extern "C" fn kernel_init() -> ! {
         ALLOCATOR.lock().init(heap_start, heap_size);
     }
     
-    // Initialize S32G3 peripherals
-    arch::s32g3::init();
+    // Initialize the UART for our console output
+    drivers::uart::init();
     
     // Print initial hello message
     println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
     
-
+    // Initialize S32G3 peripherals
+    arch::s32g3::init();
+    
+    // Setup and initialize the GIC (Generic Interrupt Controller)
+    arch::gic::init();
     
     // Setup exception vectors
     arch::exceptions::init_vectors();
+    
+    // Enable interrupts
+    arch::enable_interrupts();
     
     // Print CPU information
     unsafe {
