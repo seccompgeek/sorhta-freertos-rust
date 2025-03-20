@@ -1,0 +1,29 @@
+# Default target can be changed based on what you have installed
+[build]
+target = "aarch64-unknown-none-softfloat"
+
+# Configuration for aarch64-unknown-none
+[target.aarch64-unknown-none]
+rustflags = [
+    "-C", "link-arg=--script=link.ld",
+    "-C", "target-cpu=cortex-a53",
+]
+
+# Alternative configuration for aarch64-unknown-none-softfloat
+[target.aarch64-unknown-none-softfloat]
+rustflags = [
+    "-C", "link-arg=--script=link.ld",
+    "-C", "target-cpu=cortex-a53",
+]
+
+# Another alternative for aarch64-unknown-linux-gnu (requires code adjustments)
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+    "-C", "link-arg=--script=link.ld",
+    "-C", "target-cpu=cortex-a53",
+    "-C", "relocation-model=static",
+]
+
+[unstable]
+build-std = ["core", "compiler_builtins", "alloc"]
+build-std-features = ["compiler-builtins-mem"]

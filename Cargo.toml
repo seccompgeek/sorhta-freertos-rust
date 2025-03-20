@@ -1,0 +1,27 @@
+[package]
+name = "freertos-s32g3-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+
+[dependencies]
+cortex-a = "8.1.0"
+aarch64-cpu = "9.3.1"
+# Removed tock-registers dependency as it's causing issues
+spin = "0.9.8"
+r0 = "1.0.0"
+linked_list_allocator = "0.10.5"
+
+[profile.dev]
+panic = "abort"
+lto = true
+opt-level = "s"
+
+[profile.release]
+panic = "abort"
+lto = true
+opt-level = "s"
+
+[[bin]]
+name = "freertos-s32g3-rust"
+path = "src/main.rs"
