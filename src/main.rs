@@ -31,6 +31,7 @@ mod arch;
 mod drivers;
 mod freertos;
 
+//global_asm!(include_str!("linflex_console.S"));
 // Boot section assembly code
 // ATF will load our image and jump to _start
 global_asm!(
