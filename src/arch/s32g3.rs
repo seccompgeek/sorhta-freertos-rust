@@ -18,8 +18,8 @@ pub const LINFLEX_LINCR1: usize = 0x00;     // LIN Control Register 1
 pub const LINFLEX_LINSR: usize = 0x8;      // LIN Status Register
 pub const LINFLEX_UARTCR: usize = 0x10;     // UART Mode Control Register
 pub const LINFLEX_UARTSR: usize = 0x14;     // UART Mode Status Register
-pub const LINFLEX_LINIBRR: usize = 0x40;    // LIN Integer Baud Rate Register
-pub const LINFLEX_LINFBRR: usize = 0x44;    // LIN Fractional Baud Rate Register
+pub const LINFLEX_LINIBRR: usize = 0x28;    // LIN Integer Baud Rate Register
+pub const LINFLEX_LINFBRR: usize = 0x24;    // LIN Fractional Baud Rate Register
 pub const LINFLEX_BDRL: usize = 0x38;       // Buffer Data Register Least Significant
 pub const LINFLEX_UARTPTO: usize = 0x50;    // UART Preset Timeout Register
 
@@ -32,19 +32,29 @@ pub const LINSR_LINS_RX_TX_MODE: u32 = 0x00008000;
 pub const UARTCR_UART: u32 = 1 << 0;        // UART Mode
 pub const UARTCR_WL0: u32 = 1 << 1;         // Word Length bit 0 (8-bit)
 pub const UARTCR_PC0: u32 = 1 << 3;         // Parity Control bit 0
-pub const UARTCR_PC1: u32 = 1 << 4;         // Parity Control bit 1
-pub const UARTCR_TXEN: u32 = 1 << 10;       // Transmitter Enable
-pub const UARTCR_RXEN: u32 = 1 << 11;       // Receiver Enable
+pub const UARTCR_PC1: u32 = 1 << 6;         // Parity Control bit 1
+pub const UARTCR_TXEN: u32 = 1 << 4;       // Transmitter Enable
+pub const UARTCR_RXEN: u32 = 1 << 5;       // Receiver Enable
 pub const UARTCR_TFBM: u32 = 1 << 8;        // Tx FIFO Buffer Mode
 pub const UARTCR_RFBM: u32 = 1 << 9;        // Rx FIFO Buffer Mode
 pub const UARTCR_ROSE: u32 = 1 << 23;       // Reduced Oversampling Enable
-pub const UARTCR_TFC: u32 = 0xF800;         // Tx FIFO Counter mask
+pub const UARTCR_TFC: u32 = ((0xFFFFFFFF) << (13)) & (0xFFFFFFFF >> (32 - 1 - (15)));         // Tx FIFO Counter mask
 pub const UARTSR_DTF: u32 = 1 << 1;         // Data Transmission Completed Flag
 
 // LinFLEX UART configuration values
 pub const UART_CLOCK_HZ: u32 = 125000000;  // 80 MHz UART clock
 pub const UART_BAUD_RATE: u32 = 115200;     // Default baud rate
 pub const LDIV_MULTIPLIER: u32 = 16;        // Default LIN divider multiplier
+pub const UARTCR_OSR_SHIFT: usize = 24;
+pub const UARTCR_OSR_WIDTH: usize = 4;
+pub const CONSOLE_T_BASE: usize = 32;
+pub const CONSOLE_T_PUTC: usize = 8;
+pub const CONSOLE_T_FLUSH: usize = 12;
+pub const CONSOLE_T_GETC: usize = 24;
+pub const CONSOLE_T_FLAGS: usize = 4;
+pub const CONSOLE_FLAG_BOOT: usize = 1; 
+pub const CONSOLE_FLAG_RUNTIME: usize = 1 << 1;
+pub const CONSOLE_FLAG_CRASH: usize = 1 << 2;
 
 // Memory-mapped timer constants
 pub const S32G_STM0_BASE: usize = 0x40054000;  // System Timer Module 0
