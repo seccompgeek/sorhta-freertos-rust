@@ -34,67 +34,7 @@ mod freertos;
 //global_asm!(include_str!("linflex_console.S"));
 // Boot section assembly code
 // ATF will load our image and jump to _start
-global_asm!(
-    ".section .text.boot",
-    ".global _start",
-    "_start:",
-    "   // Disable all interrupts",
-    "   msr daifset, #0xf",
-    "",
-    "   // Set up stack pointer for each CPU core",
-    "   mrs x1, mpidr_el1",
-    "   and x1, x1, #0xFF        // Extract CPU ID",
-    "   cbz x1, primary_core     // If CPU0, branch to primary core init",
-    "",
-    "secondary_cores:",
-    "   // Secondary cores wait in a loop until woken",
-    "1: wfe",
-    "   b 1b",
-    "",
-    "primary_core:",
-    "   // Set up stack pointer using ADRP",
-    "   adrp x2, __stack_end",
-    "   add x2, x2, :lo12:__stack_end",
-    "   mov sp, x2",
-    "",
-    "   // Initialize floating point",
-    "   mrs x0, cpacr_el1",
-    "   orr x0, x0, #(3 << 20)", // Enable FP/SIMD
-    "   msr cpacr_el1, x0",
-    "",
-    "   // Clear BSS section using ADRP",
-    "   adrp x1, __bss_start",
-    "   add x1, x1, :lo12:__bss_start",
-    "   adrp x2, __bss_end",
-    "   add x2, x2, :lo12:__bss_end",
-    "   cmp x1, x2",
-    "   b.eq 2f",
-    "1: str xzr, [x1], #8",
-    "   cmp x1, x2",
-    "   b.lo 1b",
-    "2:",
-    "",
-    "   // Invalidate caches",
-    "   bl _invalidate_caches",
-    "",
-    "   // Jump to Rust code",
-    "   bl kernel_init",
-    "",
-    "   // Should never reach here",
-    "halt:",
-    "   wfe",
-    "   b halt",
-    "",
-    "// Cache invalidation routine",
-    "_invalidate_caches:",
-    "   // Invalidate instruction cache",
-    "   ic ialluis",
-    "   dsb ish",
-    "   isb",
-    "",
-    "   // Return to caller",
-    "   ret",
-);
+global_asm!(include_str!("start.S"));
 
 // Single panic handler
 #[panic_handler]
@@ -134,6 +74,8 @@ extern "C" fn kernel_init() -> ! {
         
         ALLOCATOR.lock().init(heap_start, heap_size);
     }
+
+    loop{}
     
     // Initialize the UART for our console output
     drivers::uart::init();
