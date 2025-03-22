@@ -1,15 +1,195 @@
 use core::fmt;
 use core::ptr::{read_volatile, write_volatile};
 use crate::arch::s32g3::{
-    UART_BASE,
-    LINFLEX_LINCR1, LINFLEX_LINSR, LINFLEX_UARTCR, LINFLEX_UARTSR,
-    LINFLEX_LINIBRR, LINFLEX_LINFBRR, LINFLEX_BDRL, LINFLEX_UARTPTO,
-    LINCR1_INIT, LINCR1_MME, LINSR_LINS_MASK, LINSR_LINS_INITMODE,
-    UARTCR_UART, UARTCR_WL0, UARTCR_PC0, UARTCR_PC1, UARTCR_TXEN,
-    UARTCR_RXEN, UARTCR_TFBM, UARTCR_RFBM, UARTCR_ROSE, UARTCR_TFC,
-    UARTSR_DTF, UART_CLOCK_HZ, UART_BAUD_RATE, LDIV_MULTIPLIER
+    LDIV_MULTIPLIER, LINCR1_INIT, LINCR1_MME, LINFLEX_BDRL, LINFLEX_LINCR1, LINFLEX_LINFBRR, LINFLEX_LINIBRR, LINFLEX_LINSR, LINFLEX_UARTCR, LINFLEX_UARTPTO, LINFLEX_UARTSR, LINSR_LINS_INITMODE, LINSR_LINS_MASK, UARTCR_OSR_MASK, UARTCR_PC0, UARTCR_PC1, UARTCR_RFBM, UARTCR_ROSE, UARTCR_RXEN, UARTCR_TFBM, UARTCR_TFC, UARTCR_TXEN, UARTCR_UART, UARTCR_WL0, UARTSR_DTF, UART_BASE, UART_BAUD_RATE, UART_CLOCK_HZ
 };
 
+pub const CONSOLE_UART_SIZE: usize = 0x3000;
+
+#[repr(C)]
+pub struct SerialChip<'D> {
+    data: &'D S32UartData<'D>
+}
+
+impl<'D> SerialChip<'D> {
+    pub fn get() -> &'static mut Self {
+        let chip = SERIALCHIP_MEM.as_ptr() as *mut SerialChip;
+        unsafe {
+            chip.as_mut().unwrap()
+        }
+    }
+
+    pub fn uart_read32(&self, off: usize) -> u32 {
+        let ptr = (self.data.base + off) as *mut u32;
+        unsafe {read_volatile(ptr)}
+    }
+
+    pub fn uart_write32(&self, off: usize, data: u32) {
+        let ptr = (self.data.base + off) as *mut u32;
+        unsafe{
+            write_volatile(ptr, data);
+        }
+    }
+
+    pub fn uart_write8(&self, off: usize, ch: u8) {
+        let ptr = (self.data.base + off) as *mut u8;
+        unsafe {
+            write_volatile(ptr, ch);
+        }
+    }
+}
+
+#[repr(C)]
+pub struct S32UartData<'D> {
+    base: usize,
+    len: usize,
+    clock: u32,
+    baud: u32,
+    chip: &'D SerialChip<'D>
+}
+
+pub static SERIALCHIP_MEM: [u8; 64] = [0;64];
+pub static S32UARTDATA_MEM: [u8; 128] = [0;128];
+
+impl<'D> S32UartData<'D> {
+
+    pub fn get() -> &'static mut Self {
+        unsafe {
+            let ptr = S32UARTDATA_MEM.as_ptr() as *mut Self;
+            ptr.as_mut().unwrap()
+        }
+    }
+
+
+    pub fn init(&mut self, chip: &'D SerialChip, pbase: usize, len: usize, clock: u32, baud: u32) {
+        let mut ctrl: u32;
+        
+        self.base = pbase;
+        self.len = len;
+        self.clock = clock;
+        self.baud = baud;
+        self.chip = chip;
+
+        unsafe {
+            let lincr1_addr = (pbase + LINFLEX_LINCR1) as *mut u32;
+            let linsr_addr = (pbase + LINFLEX_LINSR) as *mut u32;
+            let uartcr_addr = (pbase + LINFLEX_UARTCR) as *mut u32;
+            let uartpto_addr = (UART_BASE + LINFLEX_UARTPTO) as *mut u32;
+            
+            ctrl = LINCR1_MME | LINCR1_INIT;
+            write_volatile(lincr1_addr, ctrl);
+
+            // Wait for init mode entry
+            while (read_volatile(linsr_addr) & LINSR_LINS_MASK) != LINSR_LINS_INITMODE {
+                // Wait
+            }
+
+            write_volatile(uartcr_addr, UARTCR_UART);
+
+            self.set_brg();
+
+            write_volatile(uartpto_addr, 0xf);
+
+            ctrl = UARTCR_PC1 | UARTCR_RXEN | UARTCR_TXEN | UARTCR_PC0 | 
+                    UARTCR_WL0 | UARTCR_UART | UARTCR_RFBM | UARTCR_TFBM;
+            
+            write_volatile(uartcr_addr, ctrl);
+        }
+
+        
+    }
+
+    fn get_ldiv_mult(&self) -> u32 {
+        let mult: u32;
+        let cr: u32;
+        unsafe {
+            let uartcr_addr = (self.base + LINFLEX_UARTCR) as *mut u32;
+            cr = read_volatile(uartcr_addr);
+            
+            if (cr & UARTCR_ROSE) != 0 {
+                mult = ( cr & UARTCR_OSR_MASK) >> 24;
+            } else {
+                mult = LDIV_MULTIPLIER;
+            }
+        }
+
+        return mult;
+    }
+
+    fn set_brg(&mut self) {
+        let ibr: u32;
+        let fbr: u32;
+        let divisr = self.clock;
+        let dividr = self.baud * self.get_ldiv_mult();
+
+        ibr = divisr / dividr;
+        fbr = ((divisr % dividr) * 16 / dividr) & 0xF;
+
+        unsafe {
+            let linibrr_addr = (self.base + LINFLEX_LINIBRR) as *mut u32;
+            let linfbrr_addr = (self.base + LINFLEX_LINFBRR) as *mut u32;
+
+            write_volatile(linibrr_addr, ibr);
+            write_volatile(linfbrr_addr, fbr);
+        }
+    }
+}
+
+pub trait SerialOps {
+    fn putc(&self, ch: u8);
+    fn flush(&self);
+    fn have_rx_data(&self) -> bool;
+    fn getchar(&self) -> u8 {
+        0
+    }
+}
+
+impl<'D> SerialOps for SerialChip<'D> {
+    fn putc(&self, ch: u8) {
+        let mut uartsr;
+        let uartcr;
+
+        uartcr = self.uart_read32(LINFLEX_UARTCR);
+
+        if (uartcr & UARTCR_TFBM) != 0 {
+            loop {
+                uartsr = self.uart_read32(LINFLEX_UARTSR);
+                if (uartcr & UARTSR_DTF) != 0 {
+                    break;
+                }
+            }
+
+            self.uart_write8(LINFLEX_BDRL, ch);
+        } else {
+            self.uart_write8(LINFLEX_BDRL, ch);
+
+            loop {
+                uartsr = self.uart_read32(LINFLEX_UARTSR);
+                if (uartsr & UARTSR_DTF) == 0 {
+                    break;
+                }
+
+                uartsr &= !(UARTSR_DTF);
+                self.uart_write32(LINFLEX_UARTSR, uartsr);
+            }
+        }
+    }
+
+    fn flush(&self) {
+        
+    }
+
+    fn have_rx_data(&self) -> bool {
+        false
+    }
+}
+
+pub fn console_init()
+{
+    let data = S32UartData::get();
+    let chip = SerialChip::get();
+    data.init(chip, UART_BASE, CONSOLE_UART_SIZE, UART_CLOCK_HZ, UART_BAUD_RATE);
+}
 /**
  * Calculate and set the baud rate generator registers
  */
@@ -108,37 +288,8 @@ fn uart_wait_tx_complete() {
  * Send a single character to UART
  */
 pub fn putc(c: u8) {
-    unsafe {
-        let bdrl = (UART_BASE + LINFLEX_BDRL) as *mut u32;
-        let uartcr = (UART_BASE + LINFLEX_UARTCR) as *mut u32;
-        let uartsr = (UART_BASE + LINFLEX_UARTSR) as *mut u32;
-        
-        // If it's a newline, send carriage return first
-        if c == b'\n' {
-            putc(b'\r');
-        }
-        
-        // Check if FIFO mode or buffer mode
-        let is_fifo_mode = read_volatile(uartcr) & UARTCR_TFBM;
-        
-        if is_fifo_mode != 0 {
-            // FIFO mode - wait for DTF flag to clear
-            while read_volatile(uartsr) & UARTSR_DTF != 0 {
-                // Wait
-            }
-        }
-        
-        // Write character to data register
-        write_volatile(bdrl, c as u32);
-        
-        if is_fifo_mode == 0 {
-            // Buffer mode - wait for DTF flag to set, then clear it
-            while read_volatile(uartsr) & UARTSR_DTF == 0 {
-                // Wait
-            }
-            write_volatile(uartsr, UARTSR_DTF);  // Clear the flag in buffer mode
-        }
-    }
+    let console = S32UartData::get();
+    console.chip.putc(c);
 }
 
 /**

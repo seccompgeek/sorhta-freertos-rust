@@ -14,6 +14,10 @@ use core::arch::global_asm;
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use drivers::uart::console_init;
+use drivers::uart::print_init_complete;
+use drivers::uart::print_init_message;
+use drivers::uart::putc;
 // Import for heap allocator
 use linked_list_allocator::LockedHeap;
 
@@ -75,7 +79,12 @@ extern "C" fn kernel_init() -> ! {
         ALLOCATOR.lock().init(heap_start, heap_size);
     }
 
-    loop{}
+    console_init();
+    print_init_complete();
+    loop{
+        putc('A' as u8);
+        putc('\n' as u8);
+    }
     
     // Initialize the UART for our console output
     drivers::uart::init();

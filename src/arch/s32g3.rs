@@ -15,7 +15,7 @@ pub const GIC_CPU_BASE: usize = 0x50880000;   // GIC-500 CPU Interface
 
 // LinFLEX UART register offsets
 pub const LINFLEX_LINCR1: usize = 0x00;     // LIN Control Register 1
-pub const LINFLEX_LINSR: usize = 0x8;      // LIN Status Register
+pub const LINFLEX_LINSR: usize = 0x08;      // LIN Status Register
 pub const LINFLEX_UARTCR: usize = 0x10;     // UART Mode Control Register
 pub const LINFLEX_UARTSR: usize = 0x14;     // UART Mode Status Register
 pub const LINFLEX_LINIBRR: usize = 0x28;    // LIN Integer Baud Rate Register
@@ -33,13 +33,14 @@ pub const UARTCR_UART: u32 = 1 << 0;        // UART Mode
 pub const UARTCR_WL0: u32 = 1 << 1;         // Word Length bit 0 (8-bit)
 pub const UARTCR_PC0: u32 = 1 << 3;         // Parity Control bit 0
 pub const UARTCR_PC1: u32 = 1 << 6;         // Parity Control bit 1
-pub const UARTCR_TXEN: u32 = 1 << 10;       // Transmitter Enable
-pub const UARTCR_RXEN: u32 = 1 << 11;       // Receiver Enable
+pub const UARTCR_TXEN: u32 = 1 << 4;       // Transmitter Enable
+pub const UARTCR_RXEN: u32 = 1 << 5;       // Receiver Enable
 pub const UARTCR_TFBM: u32 = 1 << 8;        // Tx FIFO Buffer Mode
 pub const UARTCR_RFBM: u32 = 1 << 9;        // Rx FIFO Buffer Mode
 pub const UARTCR_ROSE: u32 = 1 << 23;       // Reduced Oversampling Enable
 pub const UARTCR_TFC: u32 = 0xF800;         // Tx FIFO Counter mask
 pub const UARTSR_DTF: u32 = 1 << 1;         // Data Transmission Completed Flag
+pub const UARTCR_OSR_MASK: u32 = 0xF << 24;
 
 // LinFLEX UART configuration values
 pub const UART_CLOCK_HZ: u32 = 125000000;  // 80 MHz UART clock
