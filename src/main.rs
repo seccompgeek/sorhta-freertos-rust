@@ -94,7 +94,7 @@ extern "C" fn kernel_init() -> ! {
     //drivers::uart::init();
     
     // Print initial hello message
-    println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
+    //println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
 
     loop {
         
