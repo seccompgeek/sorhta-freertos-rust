@@ -81,45 +81,49 @@ extern "C" fn kernel_init() -> ! {
         ALLOCATOR.lock().init(heap_start, heap_size);
     }
 
-    console_init();
-    gic::init();
-    // Initialize S32G3 peripherals
-    arch::s32g3::init();
-    // Enable interrupts
-    arch::enable_interrupts();
-    //print_init_complete();
-
-    
-    // Initialize the UART for our console output
-    //drivers::uart::init();
-    
-    // Print initial hello message
-    //println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
-
     loop {
         
     }
-    // Print CPU information
-    unsafe {
-        let mut cpu_id: u64;
-        asm!("mrs {}, mpidr_el1", out(reg) cpu_id);
-        cpu_id &= 0xFF;
-        
-        let mut el: u64;
-        asm!("mrs {}, CurrentEL", out(reg) el);
-        el = (el >> 2) & 0x3;
-        
-        println!("Running on CPU {} at EL{}", cpu_id, el);
-    }
+
+    // console_init();
+    // gic::init();
+    // // Initialize S32G3 peripherals
+    // arch::s32g3::init();
+    // // Enable interrupts
+    // arch::enable_interrupts();
+    // //print_init_complete();
+
     
-    // Main loop that prints hello
-    let mut counter = 0;
-    loop {
-        // Print hello
-        println!("Hello, World from S32G3 Cortex-A in Rust! (count: {})", counter);
-        counter += 1;
+    // // Initialize the UART for our console output
+    // //drivers::uart::init();
+    
+    // // Print initial hello message
+    // //println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
+
+    // loop {
         
-        // Use S32G3 timer for precise delay
-        arch::s32g3::timer::delay_ms(1000);
-    }
+    // }
+    // // Print CPU information
+    // unsafe {
+    //     let mut cpu_id: u64;
+    //     asm!("mrs {}, mpidr_el1", out(reg) cpu_id);
+    //     cpu_id &= 0xFF;
+        
+    //     let mut el: u64;
+    //     asm!("mrs {}, CurrentEL", out(reg) el);
+    //     el = (el >> 2) & 0x3;
+        
+    //     println!("Running on CPU {} at EL{}", cpu_id, el);
+    // }
+    
+    // // Main loop that prints hello
+    // let mut counter = 0;
+    // loop {
+    //     // Print hello
+    //     println!("Hello, World from S32G3 Cortex-A in Rust! (count: {})", counter);
+    //     counter += 1;
+        
+    //     // Use S32G3 timer for precise delay
+    //     arch::s32g3::timer::delay_ms(1000);
+    // }
 }
