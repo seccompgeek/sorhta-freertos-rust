@@ -3,6 +3,10 @@
 
 use core::ptr::{read_volatile, write_volatile};
 use core::arch::asm;
+use alloc::format;
+
+use crate::drivers::uart;
+
 use crate::arch::s32g3::GIC_DIST_BASE;
 
 // GIC Distributor register offsets
@@ -44,6 +48,46 @@ const GIC_PRIORITY_MASK: u32 = 0xF0;       // Priority mask (higher 4 bits)
 const GIC_HIGHEST_PRIORITY: u32 = 0x0;     // Highest priority
 const GIC_LOWEST_PRIORITY: u32 = 0xF0;     // Lowest priority
 const GIC_DEFAULT_PRIORITY: u32 = 0xA0;    // Default priority
+
+
+// GIC register addresses for S32G3
+const GIC_DISTRIBUTOR_BASE: usize = 0x50800000;
+const GIC_REDISTRIBUTOR_BASE: usize = 0x50880000;
+const GIC_CPU_INTERFACE_BASE: usize = 0x50900000;
+
+// GIC register offsets
+const GICC_CTLR: usize = 0x000;
+const GICC_PMR: usize = 0x004;
+const GICC_IAR: usize = 0x00C;
+const GICC_EOIR: usize = 0x010;
+
+extern "C" {
+    fn setup_vector_table();
+}
+
+// Memory barrier functions using cortex-a crate
+fn dmb() {
+    cortex_a::asm::barrier::dmb(cortex_a::asm::barrier::SY);
+}
+
+fn dsb() {
+    cortex_a::asm::barrier::dsb(cortex_a::asm::barrier::SY);
+}
+
+fn isb() {
+    cortex_a::asm::barrier::isb(cortex_a::asm::barrier::SY);
+}
+
+// Read 32-bit register
+unsafe fn read_reg32(addr: usize) -> u32 {
+    read_volatile(addr as *const u32)
+}
+
+// Write 32-bit register
+unsafe fn write_reg32(addr: usize, val: u32) {
+    write_volatile(addr as *mut u32, val);
+}
+
 
 /**
  * Get the number of SPIs supported by the GIC
@@ -187,15 +231,14 @@ pub fn init() {
 /**
  * Enable a specific interrupt
  */
-pub fn enable_interrupt(irq_num: u32) {
+// Enable a specific interrupt
+pub fn enable_interrupt(id: u32) {
     unsafe {
-        let reg_offset = (irq_num / 32) as usize;
-        let bit_offset = irq_num % 32;
+        let reg_offset = GICD_ISENABLER + ((id as usize/ 32) * 4);
+        let bit = 1 << (id % 32);
         
-        write_volatile(
-            ((GIC_DIST_BASE + GICD_ISENABLER) + (reg_offset * 4)) as *mut u32,
-            1 << bit_offset
-        );
+        write_reg32(GIC_DISTRIBUTOR_BASE + reg_offset, bit);
+        dsb();
     }
 }
 
@@ -273,5 +316,49 @@ pub fn send_sgi(sgi_id: u32, target_list: u8, _filter: u8) {
             x = in(reg) sgi_value,
             options(nostack)
         );
+    }
+}
+
+// Acknowledge an interrupt and get its ID
+pub fn acknowledge_interrupt() -> u32 {
+    unsafe {
+        let int_id = read_volatile((GIC_CPU_INTERFACE_BASE + GICC_IAR) as *mut u32) & 0x3FF;
+        dmb();
+        int_id
+    }
+}
+
+// Main IRQ handler called from exceptions.rs
+pub fn handle_irq() {
+    let int_id = acknowledge_interrupt();
+    
+    if int_id >= 1022 {
+        // Spurious interrupt
+        return;
+    }
+    
+    uart::puts(&format!("Handling interrupt {}\n", int_id));
+    
+    // Handle specific interrupts
+    match int_id {
+        32 => {
+            uart::puts("Timer interrupt\n");
+            // Handle timer interrupt
+        },
+        // Add other interrupt handlers as needed
+        _ => {
+            uart::puts(&format!("Unhandled interrupt {}\n", int_id));
+        }
+    }
+    
+    end_interrupt(int_id);
+}
+
+// Complete handling of an interrupt
+pub fn end_interrupt(id: u32) {
+    unsafe {
+        dmb();
+        write_reg32(GIC_CPU_INTERFACE_BASE + GICC_EOIR, id);
+        dsb();
     }
 }

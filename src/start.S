@@ -63,6 +63,9 @@ setup_el1:
     add     x2, x2, :lo12:__stack_end
     mov     sp, x2
 
+    // Setup Vector table 
+    bl      setup_vector_table
+
     // Clear BSS section using ADRP
     adrp    x1, __bss_start
     add     x1, x1, :lo12:__bss_start

@@ -1,7 +1,26 @@
+use core::sync::atomic::AtomicBool;
+
 pub mod aarch64;
 pub mod s32g3;
 pub mod gic;
 pub mod exceptions;
+pub mod smc;
+pub mod svc;
+
+// Global variable to track initialization
+pub static INITIALIZED: AtomicBool = AtomicBool::new(false);
+
+// Track state of each core (up to 8 cores on S32G3)
+pub static CORE_STATES: [AtomicBool; 8] = [
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+];
 
 // Interrupt related functions
 pub fn enable_interrupt(irq_num: u32) {

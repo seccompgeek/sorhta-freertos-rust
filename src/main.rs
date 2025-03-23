@@ -14,6 +14,7 @@ use core::arch::global_asm;
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use arch::gic;
 use drivers::uart::console_init;
 use drivers::uart::print_init_complete;
 use drivers::uart::print_init_message;
@@ -39,6 +40,7 @@ mod freertos;
 // Boot section assembly code
 // ATF will load our image and jump to _start
 global_asm!(include_str!("start.S"));
+global_asm!(include_str!("exceptions.S"));
 
 // Single panic handler
 #[panic_handler]
@@ -80,30 +82,23 @@ extern "C" fn kernel_init() -> ! {
     }
 
     console_init();
+    gic::init();
+    // Initialize S32G3 peripherals
+    arch::s32g3::init();
+    // Enable interrupts
+    arch::enable_interrupts();
     print_init_complete();
-    loop{
-        putc('A' as u8);
-        putc('\n' as u8);
-    }
+
     
     // Initialize the UART for our console output
-    drivers::uart::init();
+    //drivers::uart::init();
     
     // Print initial hello message
     println!("\r\n\r\nS32G3 Cortex-A Rust port initializing...");
-    
-    // Initialize S32G3 peripherals
-    arch::s32g3::init();
-    
-    // Setup and initialize the GIC (Generic Interrupt Controller)
-    arch::gic::init();
-    
-    // Setup exception vectors
-    arch::exceptions::init_vectors();
-    
-    // Enable interrupts
-    arch::enable_interrupts();
-    
+
+    loop {
+        
+    }
     // Print CPU information
     unsafe {
         let mut cpu_id: u64;
