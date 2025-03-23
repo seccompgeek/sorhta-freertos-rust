@@ -87,7 +87,7 @@ extern "C" fn kernel_init() -> ! {
     arch::s32g3::init();
     // Enable interrupts
     arch::enable_interrupts();
-    print_init_complete();
+    //print_init_complete();
 
     
     // Initialize the UART for our console output
