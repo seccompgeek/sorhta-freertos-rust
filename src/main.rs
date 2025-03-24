@@ -15,6 +15,7 @@ use core::arch::asm;
 use core::panic::PanicInfo;
 use core::ptr::write_volatile;
 
+use arch::enable_interrupts;
 use arch::gic;
 use drivers::uart::console_init;
 use drivers::uart::print_init_complete;
@@ -96,6 +97,14 @@ pub unsafe fn smc_call(
     result
 }
 
+unsafe fn ensure_memory_visible() {
+    // Data Synchronization Barrier
+    core::arch::asm!("dsb sy", options(nomem, nostack));
+    
+    // Data Memory Barrier
+    core::arch::asm!("dmb sy", options(nomem, nostack));
+}
+
 
 #[no_mangle]
 extern "C" fn kernel_init() -> ! {
@@ -114,7 +123,9 @@ extern "C" fn kernel_init() -> ! {
     // }
 
     // console_init();
+    enable_interrupts();
     unsafe {
+        ensure_memory_visible();
         smc_call(0x40000000, 0, 0, 0, 0, 0, 0);
         let ptr = 0xE0100000 as *mut u32;
         write_volatile(ptr, 0x1);
