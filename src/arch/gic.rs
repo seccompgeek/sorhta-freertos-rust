@@ -345,6 +345,11 @@ pub fn handle_irq() {
             uart::puts("Timer interrupt\n");
             // Handle timer interrupt
         },
+
+        1 => { // receiving SGI/IPI test
+            send_sgi(0x2, 0x1, 0);
+        }
+
         // Add other interrupt handlers as needed
         _ => {
             uart::puts(&format!("Unhandled interrupt {}\n", int_id));
