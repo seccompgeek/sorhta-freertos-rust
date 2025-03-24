@@ -13,6 +13,7 @@ extern crate core;
 use core::arch::global_asm;
 use core::arch::asm;
 use core::panic::PanicInfo;
+use core::ptr::write_volatile;
 
 use arch::gic;
 use drivers::uart::console_init;
@@ -84,7 +85,9 @@ extern "C" fn kernel_init() -> ! {
     // console_init();
     unsafe {
         let ptr = 0xE0100000 as *mut u32;
-        *ptr = 0x1; // just to check that we have initialized properly
+        write_volatile(ptr, 0x1);
+        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+        //*ptr = 0x1; // just to check that we have initialized properly
     }
 
     loop {
