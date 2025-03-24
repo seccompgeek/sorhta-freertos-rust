@@ -360,7 +360,7 @@ pub fn handle_irq() {
         },
 
         1 => { // receiving SGI/IPI test
-            send_sgi(0x2, 0x1, 0);
+            send_sgi(0x2, 0x1| (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7), 0);
         }
 
         // Add other interrupt handlers as needed
