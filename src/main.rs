@@ -17,6 +17,7 @@ use core::ptr::write_volatile;
 
 use arch::enable_interrupts;
 use arch::gic;
+use arch::gic::request_ipi;
 use drivers::uart::console_init;
 use drivers::uart::print_init_complete;
 use drivers::uart::print_init_message;
@@ -126,6 +127,7 @@ extern "C" fn kernel_init() -> ! {
     //enable_interrupts();
     gic::init();
     enable_interrupts();
+    request_ipi(1);
      unsafe {
     //     //ensure_memory_visible();
          smc_call(0xFFFF0000, 0, 0, 0, 0, 0, 0);

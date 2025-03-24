@@ -9,6 +9,8 @@ use crate::drivers::uart;
 
 use crate::arch::s32g3::GIC_DIST_BASE;
 
+use super::smc::get_current_core_id;
+
 // GIC Distributor register offsets
 const GICD_CTLR: usize = 0x0000;           // Distributor Control Register
 const GICD_TYPER: usize = 0x0004;          // Interrupt Controller Type Register
@@ -48,6 +50,7 @@ const GIC_PRIORITY_MASK: u32 = 0xF0;       // Priority mask (higher 4 bits)
 const GIC_HIGHEST_PRIORITY: u32 = 0x0;     // Highest priority
 const GIC_LOWEST_PRIORITY: u32 = 0xF0;     // Lowest priority
 const GIC_DEFAULT_PRIORITY: u32 = 0xA0;    // Default priority
+const GICR_STRIDE: u32 = 0x20000;
 
 
 // GIC register addresses for S32G3
@@ -285,6 +288,7 @@ pub fn end_of_interrupt(irq_num: u32) {
     }
 }
 
+
 /**
  * Set interrupt priority
  */
@@ -297,6 +301,15 @@ pub fn set_priority(irq_num: u32, priority: u8) {
             ((GIC_DIST_BASE + GICD_IPRIORITYR) + (reg_offset * 4)) as *mut u32,
             priority_val
         );
+    }
+}
+
+/* Request IPI */
+pub fn request_ipi(ipi_num: u32) {
+    let gicr_base = GIC_REDISTRIBUTOR_BASE + (get_current_core_id() * GICR_STRIDE as u64) as usize;
+    let gicr_isenabler0 = (gicr_base + GICD_ISENABLER) as *mut u32;
+    unsafe {
+        write_volatile(gicr_isenabler0, 1 << ipi_num);
     }
 }
 
