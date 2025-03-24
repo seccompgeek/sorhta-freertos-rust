@@ -68,18 +68,18 @@ fn panic(info: &PanicInfo) -> ! {
 #[no_mangle]
 extern "C" fn kernel_init() -> ! {
     // Initialize the heap allocator
-    unsafe {
-        extern "C" {
-            static _heap_start: u64;
-            static _heap_end: u64;
-        }
+    // unsafe {
+    //     extern "C" {
+    //         static _heap_start: u64;
+    //         static _heap_end: u64;
+    //     }
         
-        let heap_start = &_heap_start as *const u64 as *mut u8;
-        let heap_end = &_heap_end as *const u64 as usize;
-        let heap_size = heap_end - (heap_start as usize);
+    //     let heap_start = &_heap_start as *const u64 as *mut u8;
+    //     let heap_end = &_heap_end as *const u64 as usize;
+    //     let heap_size = heap_end - (heap_start as usize);
         
-        ALLOCATOR.lock().init(heap_start, heap_size);
-    }
+    //     ALLOCATOR.lock().init(heap_start, heap_size);
+    // }
 
     loop {
         
