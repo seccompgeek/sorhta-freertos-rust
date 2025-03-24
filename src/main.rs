@@ -131,7 +131,7 @@ extern "C" fn kernel_init() -> ! {
     request_ipi(1);
      unsafe {
     //     //ensure_memory_visible();
-         smc_call(0xFFFF0000, 0, 0, 0, 0, 0, 0);
+         smc_call(0x84000008, 0, 0, 0, 0, 0, 0);
     //     let ptr = 0xE0100000 as *mut u32;
     //     write_volatile(ptr, 0x1);
     //     core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
