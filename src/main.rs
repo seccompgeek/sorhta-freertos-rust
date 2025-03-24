@@ -17,6 +17,7 @@ use core::ptr::write_volatile;
 
 use arch::enable_interrupts;
 use arch::gic;
+use arch::gic::broadcast_custom_ipi;
 use arch::gic::request_ipi;
 use drivers::uart::console_init;
 use drivers::uart::print_init_complete;
@@ -137,8 +138,12 @@ extern "C" fn kernel_init() -> ! {
     //     //*ptr = 0x1; // just to check that we have initialized properly
     }
 
+    let mut waiter = 0x110000;
     loop {
-        
+        while waiter > 0 {
+            waiter -= 1;
+        }
+        broadcast_custom_ipi();
     }
 
     // console_init();

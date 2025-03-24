@@ -313,6 +313,59 @@ pub fn request_ipi(ipi_num: u32) {
     }
 }
 
+unsafe fn send_ipi_to_cpu(target_cpu: u64, ipi_id: u64) {
+    // Get MPIDR (Multiprocessor Affinity Register) value for target CPU
+    let target_mpidr = get_cpu_mpidr(target_cpu);
+    
+    // Extract affinity values from MPIDR
+    let aff1 = (target_mpidr >> 8) & 0xFF;   // Cluster ID
+    let aff0 = target_mpidr & 0xFF;          // Core ID within cluster
+    
+    // Format value for ICC_SGI1R_EL1 register:
+    // - bits [23:16]: Aff1 (target cluster)
+    // - bits [15:8]: Aff0 (target core)
+    // - bits [3:0]: SGI number (IPI ID)
+    let sgi_val = (aff1 << 16) | (aff0 << 8) | (1 << (target_cpu & 0xF)) | ipi_id;
+    
+    // Write to ICC_SGI1R_EL1 system register to trigger SGI
+    core::arch::asm!("msr ICC_SGI1R_EL1, {}", in(reg) sgi_val);
+}
+
+// Function to get MPIDR for a logical CPU ID (implementation depends on your CPU mapping)
+fn get_cpu_mpidr(cpu_id: u64) -> u64 {
+    // This is system-specific - you need to maintain a mapping
+    // between logical CPU IDs and their MPIDR values
+    // For S32G3, this would map to the specific cores
+    
+    // Example mapping (you'll need to adjust for your specific S32G3 configuration)
+    match cpu_id {
+        0 => 0x0000, // CPU0 in cluster 0
+        1 => 0x0001, // CPU1 in cluster 0
+        2 => 0x0002, // CPU2 in cluster 0
+        3 => 0x0003, // CPU3 in cluster 0
+        4 => 0x0100, // CPU0 in cluster 1
+        5 => 0x0101, // CPU1 in cluster 1
+        6 => 0x0102, // CPU2 in cluster 1
+        7 => 0x0103, // CPU3 in cluster 1
+        _ => panic!("Invalid CPU ID")
+    }
+}
+
+// Send an IPI to all other cores
+pub fn broadcast_custom_ipi() {
+    let current_cpu = get_current_core_id();
+    
+    // Iterate through all CPUs and send IPIs
+    for cpu in 0..8 {  // Assuming 8 cores on S32G3
+        if cpu != current_cpu {
+            unsafe {
+                send_ipi_to_cpu(cpu, 0x2);
+            }
+        }
+    }
+}
+
+
 /**
  * Send a Software Generated Interrupt
  */
