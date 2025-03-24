@@ -82,6 +82,10 @@ extern "C" fn kernel_init() -> ! {
     // }
 
     // console_init();
+    unsafe {
+        let ptr = 0xE0100000 as *mut u32;
+        *ptr = 0x1; // just to check that we have initialized properly
+    }
 
     loop {
         
