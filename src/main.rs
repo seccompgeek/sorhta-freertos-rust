@@ -123,15 +123,15 @@ extern "C" fn kernel_init() -> ! {
     // }
 
     // console_init();
-    enable_interrupts();
-    unsafe {
-        ensure_memory_visible();
-        smc_call(0x40000000, 0, 0, 0, 0, 0, 0);
-        let ptr = 0xE0100000 as *mut u32;
-        write_volatile(ptr, 0x1);
-        core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
-        //*ptr = 0x1; // just to check that we have initialized properly
-    }
+    //enable_interrupts();
+    // unsafe {
+    //     //ensure_memory_visible();
+    //     smc_call(0x40000000, 0, 0, 0, 0, 0, 0);
+    //     let ptr = 0xE0100000 as *mut u32;
+    //     write_volatile(ptr, 0x1);
+    //     core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
+    //     //*ptr = 0x1; // just to check that we have initialized properly
+    // }
 
     loop {
         
