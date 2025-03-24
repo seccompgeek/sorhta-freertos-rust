@@ -81,7 +81,7 @@ extern "C" fn kernel_init() -> ! {
     //     ALLOCATOR.lock().init(heap_start, heap_size);
     // }
 
-    console_init();
+    // console_init();
 
     loop {
         
