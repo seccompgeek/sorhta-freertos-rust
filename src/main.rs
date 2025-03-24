@@ -66,6 +66,37 @@ fn panic(info: &PanicInfo) -> ! {
     }
 }
 
+#[inline(always)]
+pub unsafe fn smc_call(
+    function_id: u32,
+    arg1: u64,
+    arg2: u64,
+    arg3: u64,
+    arg4: u64,
+    arg5: u64,
+    arg6: u64,
+) -> u64 {
+    let mut result: u64;
+    
+    #[cfg(target_arch = "aarch64")]
+    {
+        core::arch::asm!(
+            "smc #0",
+            inout("x0") function_id as u64 => result,
+            in("x1") arg1,
+            in("x2") arg2,
+            in("x3") arg3,
+            in("x4") arg4,
+            in("x5") arg5,
+            in("x6") arg6,
+            options(nostack)
+        );
+    }
+    
+    result
+}
+
+
 #[no_mangle]
 extern "C" fn kernel_init() -> ! {
     // Initialize the heap allocator
@@ -84,6 +115,7 @@ extern "C" fn kernel_init() -> ! {
 
     // console_init();
     unsafe {
+        smc_call(0x40000000, 0, 0, 0, 0, 0, 0);
         let ptr = 0xE0100000 as *mut u32;
         write_volatile(ptr, 0x1);
         core::sync::atomic::fence(core::sync::atomic::Ordering::Release);
