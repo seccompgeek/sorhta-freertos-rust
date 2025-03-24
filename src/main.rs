@@ -124,6 +124,7 @@ extern "C" fn kernel_init() -> ! {
 
     //console_init();
     //enable_interrupts();
+    gic::init();
      unsafe {
     //     //ensure_memory_visible();
          smc_call(0xFFFF0000, 0, 0, 0, 0, 0, 0);
