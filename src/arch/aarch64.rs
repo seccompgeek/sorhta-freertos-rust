@@ -66,7 +66,7 @@ pub fn cpu_id() -> u8 {
     unsafe {
         asm!("mrs {}, mpidr_el1", out(reg) mpidr);
     }
-    (mpidr & 0xFF) as u8
+    ((mpidr >> 8) & 0xFF) as u8
 }
 
 // Wait for event

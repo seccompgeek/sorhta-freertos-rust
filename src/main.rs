@@ -138,7 +138,7 @@ extern "C" fn kernel_init() -> ! {
     //     //*ptr = 0x1; // just to check that we have initialized properly
     }
 
-    panic!();
+    //panic!();
 
     let mut waiter = 0x110000;
     loop {
