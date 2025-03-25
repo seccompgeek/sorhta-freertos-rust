@@ -127,7 +127,7 @@ extern "C" fn kernel_init() -> ! {
     //console_init();
     //enable_interrupts();
     gic::init();
-    enable_interrupts();
+    //enable_interrupts();
     //request_ipi(1);
     //  unsafe {
     // //     //ensure_memory_visible();
@@ -140,12 +140,12 @@ extern "C" fn kernel_init() -> ! {
 
     //panic!();
 
-    let mut waiter = 0x110000;
+    //let mut waiter = 0x110000;
     loop {
-        while waiter > 0 {
-            waiter -= 1;
-        }
-        //broadcast_custom_ipi();
+        // while waiter > 0 {
+        //     waiter -= 1;
+        // }
+        // //broadcast_custom_ipi();
     }
 
     // console_init();

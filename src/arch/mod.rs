@@ -96,6 +96,6 @@ pub fn delay_ms(ms: u32) {
 
 // Hardware initialization
 pub fn init() {
-    s32g3::init();
+    //s32g3::init();
     gic::init();  // Initialize GIC for this core
 }
