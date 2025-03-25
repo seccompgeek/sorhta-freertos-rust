@@ -119,13 +119,3 @@ pub mod timer {
         }
     }
 }
-
-// Initialize S32G3 peripheral clocks and basic hardware
-pub fn init() {
-    // Initialize system timer
-    gic::init();
-    uart::init();
-    enable_interrupts();
-    // In a full implementation, would initialize other S32G3-specific
-    // hardware like clocks, GPIOs, etc.
-}

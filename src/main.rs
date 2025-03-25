@@ -128,7 +128,7 @@ extern "C" fn kernel_init() -> ! {
     //enable_interrupts();
     gic::init();
     enable_interrupts();
-    request_ipi(1);
+    //request_ipi(1);
     //  unsafe {
     // //     //ensure_memory_visible();
     //      smc_call(0x84000008, 0, 0, 0, 0, 0, 0);
@@ -145,7 +145,7 @@ extern "C" fn kernel_init() -> ! {
         while waiter > 0 {
             waiter -= 1;
         }
-        broadcast_custom_ipi();
+        //broadcast_custom_ipi();
     }
 
     // console_init();
