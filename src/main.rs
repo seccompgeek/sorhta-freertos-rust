@@ -145,7 +145,7 @@ extern "C" fn kernel_init() -> ! {
         while waiter > 0 {
             waiter -= 1;
         }
-        //broadcast_custom_ipi();
+        broadcast_custom_ipi();
     }
 
     // console_init();

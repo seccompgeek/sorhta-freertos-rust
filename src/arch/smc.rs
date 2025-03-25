@@ -57,7 +57,7 @@ pub fn get_current_core_id() -> u64 {
     unsafe {
         asm!("mrs {}, mpidr_el1", out(reg) mpidr);
     }
-    mpidr & 0xFF
+    (mpidr >> 8) & 0xFF
 }
 
 // The SMC handler called from the exception vector
