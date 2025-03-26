@@ -15,6 +15,7 @@ use core::arch::asm;
 use core::panic::PanicInfo;
 use core::ptr::write_volatile;
 
+use arch::aarch64::dsb;
 use arch::enable_interrupts;
 use arch::gic;
 // use arch::gic::broadcast_custom_ipi;
@@ -153,7 +154,11 @@ extern "C" fn kernel_init() -> ! {
         let _ = gic::GicDriver::send_sgi_to_core(4, 2);
         let _ = gic::GicDriver::send_sgi_to_core(5, 2);
         let _ = gic::GicDriver::send_sgi_to_core(6, 2);
-
+        let ptr = 0xE0100000 as *mut u32;
+        unsafe {
+            *ptr = 0x1;
+            dsb();
+        }
     }
 
     // console_init();
