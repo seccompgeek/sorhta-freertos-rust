@@ -149,6 +149,11 @@ extern "C" fn kernel_init() -> ! {
         // }
         // //broadcast_custom_ipi();
         let _ = gic::GicDriver::send_sgi(0xFF, 0x2);
+        let _ = gic::GicDriver::send_sgi_to_core(3, 2);
+        let _ = gic::GicDriver::send_sgi_to_core(4, 2);
+        let _ = gic::GicDriver::send_sgi_to_core(5, 2);
+        let _ = gic::GicDriver::send_sgi_to_core(6, 2);
+
     }
 
     // console_init();
