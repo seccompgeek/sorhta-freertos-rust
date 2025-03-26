@@ -156,7 +156,7 @@ extern "C" fn kernel_init() -> ! {
         let _ = gic::GicDriver::send_sgi_to_core(6, 2);
         let ptr = 0xE0100000 as *mut u32;
         unsafe {
-            *ptr = 0x1;
+            *ptr = 0x2;
             dsb();
         }
     }
