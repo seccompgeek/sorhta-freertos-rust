@@ -148,6 +148,7 @@ extern "C" fn kernel_init() -> ! {
         //     waiter -= 1;
         // }
         // //broadcast_custom_ipi();
+        let _ = gic::GicDriver::send_sgi(0xFF, 0x2);
     }
 
     // console_init();
