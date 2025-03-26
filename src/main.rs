@@ -126,7 +126,7 @@ extern "C" fn kernel_init() -> ! {
 
     //console_init();
     //enable_interrupts();
-    gic::init();
+    //gic::init();
     //enable_interrupts();
     //request_ipi(1);
     //  unsafe {
