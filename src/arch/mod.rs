@@ -24,27 +24,23 @@ pub static CORE_STATES: [AtomicBool; 8] = [
 
 // Interrupt related functions
 pub fn enable_interrupt(irq_num: u32) {
-    gic::enable_interrupt(irq_num);
+    gic::GicDriver::enable_interrupt(irq_num);
 }
 
 pub fn disable_interrupt(irq_num: u32) {
-    gic::disable_interrupt(irq_num);
-}
-
-pub fn get_interrupt_id() -> u32 {
-    gic::get_interrupt_id()
+    gic::GicDriver::disable_interrupt(irq_num);
 }
 
 pub fn end_of_interrupt(irq_num: u32) {
-    gic::end_of_interrupt(irq_num);
+    gic::GicDriver::end_interrupt(irq_num);
 }
 
 pub fn set_interrupt_priority(irq_num: u32, priority: u8) {
-    gic::set_priority(irq_num, priority);
+    gic::GicDriver::set_priority(irq_num, priority);
 }
 
 pub fn send_sgi(sgi_id: u32, target_list: u8) {
-    gic::send_sgi(sgi_id, target_list, 0);
+    gic::GicDriver::send_sgi_to_core(sgi_id, target_list);
 } 
 
 // CPU core functions
@@ -97,5 +93,5 @@ pub fn delay_ms(ms: u32) {
 // Hardware initialization
 pub fn init() {
     //s32g3::init();
-    gic::init();  // Initialize GIC for this core
+    gic::GicDriver::init_secondary_core(); // Initialize GIC for this core
 }

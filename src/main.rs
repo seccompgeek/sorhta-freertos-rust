@@ -17,8 +17,8 @@ use core::ptr::write_volatile;
 
 use arch::enable_interrupts;
 use arch::gic;
-use arch::gic::broadcast_custom_ipi;
-use arch::gic::request_ipi;
+// use arch::gic::broadcast_custom_ipi;
+// use arch::gic::request_ipi;
 use drivers::uart::console_init;
 use drivers::uart::print_init_complete;
 use drivers::uart::print_init_message;
@@ -123,7 +123,9 @@ extern "C" fn kernel_init() -> ! {
         
     //     ALLOCATOR.lock().init(heap_start, heap_size);
     // }
-
+    arch::disable_interrupts();
+    arch::init();
+    arch::enable_interrupts();
     //console_init();
     //enable_interrupts();
     //gic::init();

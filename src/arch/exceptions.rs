@@ -52,8 +52,8 @@ pub extern "C" fn handle_el1_sync_exception() {
 
 #[no_mangle]
 pub extern "C" fn handle_el1_irq() {
-    uart::puts("EL1 IRQ received\n");
-    gic::handle_irq();
+    // uart::puts("EL1 IRQ received\n");
+    // gic::handle();
 }
 
 #[no_mangle]
@@ -76,8 +76,8 @@ pub extern "C" fn handle_el1_serror() {
 
 #[no_mangle]
 pub extern "C" fn handle_el0_irq() {
-    uart::puts("EL0 IRQ received\n");
-    gic::handle_irq();
+    // uart::puts("EL0 IRQ received\n");
+    // gic::handle_irq();
 }
 
 #[no_mangle]
