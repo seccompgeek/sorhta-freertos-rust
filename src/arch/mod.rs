@@ -45,15 +45,11 @@ pub fn send_sgi(sgi_id: u32, target_list: u8) {
 
 // CPU core functions
 pub fn enable_interrupts() {
-    unsafe {
-        aarch64::enable_irq();
-    }
+    gic::GicDriver::enable_interrupts();
 }
 
 pub fn disable_interrupts() {
-    unsafe {
-        aarch64::disable_irq();
-    }
+    gic::GicDriver::disable_interrupts();
 }
 
 pub fn wait_for_interrupt() {
