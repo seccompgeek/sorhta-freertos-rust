@@ -55,9 +55,11 @@ setup_vector_table:
 // Exception handlers
 //----------------------------------------------------------------------
 
-// Save all registers and call the Rust handler
+// Save all registers and processor state
 .macro SAVE_REGISTERS
-    sub     sp, sp, #(8 * 30)
+    sub     sp, sp, #(8 * 33)           // Make space for 33 registers (x0-x29, x30, spsr_el1, elr_el1)
+    
+    // Save general purpose registers
     stp     x0, x1, [sp, #(8 * 0)]
     stp     x2, x3, [sp, #(8 * 2)]
     stp     x4, x5, [sp, #(8 * 4)]
@@ -73,10 +75,22 @@ setup_vector_table:
     stp     x24, x25, [sp, #(8 * 24)]
     stp     x26, x27, [sp, #(8 * 26)]
     stp     x28, x29, [sp, #(8 * 28)]
+    str     x30, [sp, #(8 * 30)]        // Save link register
+    
+    // Save exception state
+    mrs     x0, spsr_el1
+    mrs     x1, elr_el1
+    stp     x0, x1, [sp, #(8 * 31)]     // Save spsr_el1 and elr_el1
 .endm
 
-// Restore registers and return
+// Restore registers and processor state
 .macro RESTORE_REGISTERS
+    // Restore exception state
+    ldp     x0, x1, [sp, #(8 * 31)]
+    msr     spsr_el1, x0
+    msr     elr_el1, x1
+    
+    // Restore general purpose registers
     ldp     x0, x1, [sp, #(8 * 0)]
     ldp     x2, x3, [sp, #(8 * 2)]
     ldp     x4, x5, [sp, #(8 * 4)]
@@ -92,53 +106,71 @@ setup_vector_table:
     ldp     x24, x25, [sp, #(8 * 24)]
     ldp     x26, x27, [sp, #(8 * 26)]
     ldp     x28, x29, [sp, #(8 * 28)]
-    add     sp, sp, #(8 * 30)
+    ldr     x30, [sp, #(8 * 30)]        // Restore link register
+    
+    add     sp, sp, #(8 * 33)           // Restore stack pointer
 .endm
 
 el1_sync_sp0:
     SAVE_REGISTERS
+    mrs     x0, esr_el1                 // Pass syndrome register as first parameter
+    mrs     x1, far_el1                 // Pass fault address register as second parameter
     bl      handle_el1_sync_exception
     RESTORE_REGISTERS
     eret
 
 el1_irq_sp0:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_irq
     RESTORE_REGISTERS
     eret
 
 el1_fiq_sp0:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_fiq
     RESTORE_REGISTERS
     eret
 
 el1_serror_sp0:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_serror
     RESTORE_REGISTERS
     eret
 
 el1_sync_spx:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_sync_exception
     RESTORE_REGISTERS
     eret
 
 el1_irq_spx:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_irq
     RESTORE_REGISTERS
     eret
 
 el1_fiq_spx:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_fiq
     RESTORE_REGISTERS
     eret
 
 el1_serror_spx:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el1_serror
     RESTORE_REGISTERS
     eret
@@ -153,42 +185,56 @@ el0_sync_a64:
 
 el0_irq_a64:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_irq
     RESTORE_REGISTERS
     eret
 
 el0_fiq_a64:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_fiq
     RESTORE_REGISTERS
     eret
 
 el0_serror_a64:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_serror
     RESTORE_REGISTERS
     eret
 
 el0_sync_a32:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_sync_a32
     RESTORE_REGISTERS
     eret
 
 el0_irq_a32:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_irq_a32
     RESTORE_REGISTERS
     eret
 
 el0_fiq_a32:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_fiq_a32
     RESTORE_REGISTERS
     eret
 
 el0_serror_a32:
     SAVE_REGISTERS
+    mrs     x0, esr_el1
+    mrs     x1, far_el1
     bl      handle_el0_serror_a32
     RESTORE_REGISTERS
     eret
