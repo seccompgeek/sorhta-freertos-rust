@@ -22,34 +22,34 @@ pub static CORE_STATES: [AtomicBool; 8] = [
     AtomicBool::new(false),
 ];
 
-// Interrupt related functions
-pub fn enable_interrupt(irq_num: u32) {
-    gic::GicDriver::enable_interrupt(irq_num);
-}
+// // Interrupt related functions
+// pub fn enable_interrupt(irq_num: u32) {
+//     gic::GicDriver::enable_interrupt(irq_num);
+// }
 
-pub fn disable_interrupt(irq_num: u32) {
-    gic::GicDriver::disable_interrupt(irq_num);
-}
+// pub fn disable_interrupt(irq_num: u32) {
+//     gic::GicDriver::disable_interrupt(irq_num);
+// }
 
-pub fn end_of_interrupt(irq_num: u32) {
-    gic::GicDriver::end_interrupt(irq_num);
-}
+// pub fn end_of_interrupt(irq_num: u32) {
+//     gic::GicDriver::end_interrupt(irq_num);
+// }
 
-pub fn set_interrupt_priority(irq_num: u32, priority: u8) {
-    gic::GicDriver::set_priority(irq_num, priority);
-}
+// pub fn set_interrupt_priority(irq_num: u32, priority: u8) {
+//     gic::GicDriver::set_p(irq_num, priority);
+// }
 
-pub fn send_sgi(sgi_id: u32, target_list: u8) {
-    gic::GicDriver::send_sgi_to_core(sgi_id, target_list);
-} 
+// pub fn send_sgi(sgi_id: u32, target_list: u8) {
+//     gic::GicDriver::send_sgi_to_core(sgi_id, target_list);
+// } 
 
 // CPU core functions
 pub fn enable_interrupts() {
-    gic::GicDriver::enable_interrupts();
+    gic::GicV3Driver::enable_interrupts();
 }
 
 pub fn disable_interrupts() {
-    gic::GicDriver::disable_interrupts();
+    gic::GicV3Driver::disable_interrupts();
 }
 
 pub fn wait_for_interrupt() {
@@ -89,5 +89,5 @@ pub fn delay_ms(ms: u32) {
 // Hardware initialization
 pub fn init() {
     //s32g3::init();
-    gic::GicDriver::init_secondary_core(); // Initialize GIC for this core
+    gic::GicV3Driver::init_secondary_core();
 }

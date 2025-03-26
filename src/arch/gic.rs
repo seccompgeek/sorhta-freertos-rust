@@ -1,18 +1,19 @@
-// gic.rs
-// Generic Interrupt Controller driver for S32G3 secondary cores
+// gicv3.rs
+// Generic Interrupt Controller v3 driver for S32G3 secondary cores
 
 use core::arch::asm;
 use core::ptr::{read_volatile, write_volatile};
 use core::sync::atomic::{AtomicBool, Ordering};
 
-/// GIC register addresses for S32G3
-pub const GIC_DIST_BASE: u64 = 0x5080_0000;
-pub const GIC_CPU_BASE: u64 = 0x5088_0000;
+/// GICv3 register addresses for S32G3
+pub const GICD_BASE: u64 = 0x5080_0000;  // GIC Distributor base
+pub const GICR_BASE: u64 = 0x5090_0000;  // GIC Redistributor base
 
 /// GIC Distributor register offsets
 pub const GICD_CTLR: u64 = 0x0000;           // Distributor Control Register
 pub const GICD_TYPER: u64 = 0x0004;          // Interrupt Controller Type Register
 pub const GICD_IIDR: u64 = 0x0008;           // Distributor Implementer Identification Register
+pub const GICD_STATUSR: u64 = 0x0010;        // Error Reporting Status Register
 pub const GICD_IGROUPR: u64 = 0x0080;        // Interrupt Group Registers
 pub const GICD_ISENABLER: u64 = 0x0100;      // Interrupt Set-Enable Registers
 pub const GICD_ICENABLER: u64 = 0x0180;      // Interrupt Clear-Enable Registers
@@ -21,23 +22,30 @@ pub const GICD_ICPENDR: u64 = 0x0280;        // Interrupt Clear-Pending Register
 pub const GICD_ISACTIVER: u64 = 0x0300;      // Interrupt Set-Active Registers
 pub const GICD_ICACTIVER: u64 = 0x0380;      // Interrupt Clear-Active Registers
 pub const GICD_IPRIORITYR: u64 = 0x0400;     // Interrupt Priority Registers
-pub const GICD_ITARGETSR: u64 = 0x0800;      // Interrupt Processor Targets Registers
 pub const GICD_ICFGR: u64 = 0x0C00;          // Interrupt Configuration Registers
-pub const GICD_SGIR: u64 = 0x0F00;           // Software Generated Interrupt Register
+pub const GICD_IROUTER: u64 = 0x6000;        // Interrupt Routing Registers
 
-/// GIC CPU Interface register offsets
-pub const GICC_CTLR: u64 = 0x0000;           // CPU Interface Control Register
-pub const GICC_PMR: u64 = 0x0004;            // Priority Mask Register
-pub const GICC_BPR: u64 = 0x0008;            // Binary Point Register
-pub const GICC_IAR: u64 = 0x000C;            // Interrupt Acknowledge Register
-pub const GICC_EOIR: u64 = 0x0010;           // End of Interrupt Register
-pub const GICC_RPR: u64 = 0x0014;            // Running Priority Register
-pub const GICC_HPPIR: u64 = 0x0018;          // Highest Priority Pending Interrupt Register
-pub const GICC_ABPR: u64 = 0x001C;           // Aliased Binary Point Register
-pub const GICC_DIR: u64 = 0x1000;            // Deactivate Interrupt Register
+/// GIC Redistributor register offsets (relative to GICR_BASE)
+pub const GICR_STRIDE: u64 = 0x20000;        // Stride between redistributors
+pub const GICR_CTLR: u64 = 0x0000;           // Redistributor Control Register
+pub const GICR_IIDR: u64 = 0x0004;           // Implementer Identification Register
+pub const GICR_TYPER: u64 = 0x0008;          // Redistributor Type Register
+pub const GICR_STATUSR: u64 = 0x0010;        // Error Reporting Status Register
+pub const GICR_WAKER: u64 = 0x0014;          // Redistributor Wakeup Control Register
 
-/// Track if GIC has been initialized
-static GIC_INITIALIZED: AtomicBool = AtomicBool::new(false);
+// SGI_base frame (offset 0x10000 from Redistributor base)
+pub const GICR_SGI_OFFSET: u64 = 0x10000;    // Offset to SGI_base frame
+pub const GICR_IGROUPR0: u64 = 0x0080;       // Interrupt Group Register (SGIs/PPIs)
+pub const GICR_ISENABLER0: u64 = 0x0100;     // Interrupt Set-Enable Register (SGIs/PPIs)
+pub const GICR_ICENABLER0: u64 = 0x0180;     // Interrupt Clear-Enable Register (SGIs/PPIs)
+pub const GICR_ISPENDR0: u64 = 0x0200;       // Interrupt Set-Pending Register (SGIs/PPIs)
+pub const GICR_ICPENDR0: u64 = 0x0280;       // Interrupt Clear-Pending Register (SGIs/PPIs)
+pub const GICR_ISACTIVER0: u64 = 0x0300;     // Interrupt Set-Active Register (SGIs/PPIs)
+pub const GICR_ICACTIVER0: u64 = 0x0380;     // Interrupt Clear-Active Register (SGIs/PPIs)
+pub const GICR_IPRIORITYR: u64 = 0x0400;     // Interrupt Priority Registers (SGIs/PPIs)
+pub const GICR_ICFGR0: u64 = 0x0C00;         // Interrupt Configuration Register 0 (SGIs)
+pub const GICR_ICFGR1: u64 = 0x0C04;         // Interrupt Configuration Register 1 (PPIs)
+pub const GICR_IGRPMODR0: u64 = 0x0D00;      // Interrupt Group Modifier Register (SGIs/PPIs)
 
 /// Constants for MPIDR register processing
 pub const MPIDR_AFFINITY_MASK: u64 = 0xff00ff_ffff;
@@ -49,14 +57,38 @@ pub const MPIDR_CLUSTER_MASK: u64 = MPIDR_AFFLVL_MASK << MPIDR_AFFINITY_BITS;
 pub const MPIDR_AFF1_SHIFT: u32 = MPIDR_AFFINITY_BITS;
 pub const S32_MPIDR_CPU_MASK_BITS: u32 = 3; // Log2 of max CPUs per cluster (8)
 
+/// ICC_SRE_EL1 bits
+pub const ICC_SRE_EL1_SRE: u64 = 1 << 0;     // System Register Enable
+pub const ICC_SRE_EL1_DFB: u64 = 1 << 1;     // Disable FIQ Bypass
+pub const ICC_SRE_EL1_DIB: u64 = 1 << 2;     // Disable IRQ Bypass
+pub const ICC_SRE_EL1_EN: u64 = 1 << 3;      // Enable for Non-secure state
+
+/// ICC_IGRPEN1_EL1 bits
+pub const ICC_IGRPEN1_EL1_ENABLE: u64 = 1 << 0; // Enable for Group 1 interrupts
+
+/// GICD_CTLR bits
+pub const GICD_CTLR_ENABLE_G0: u32 = 1 << 0; // Enable Group 0 interrupts
+pub const GICD_CTLR_ENABLE_G1NS: u32 = 1 << 1; // Enable Non-secure Group 1 interrupts
+pub const GICD_CTLR_ENABLE_G1S: u32 = 1 << 2; // Enable Secure Group 1 interrupts
+pub const GICD_CTLR_ARE_NS: u32 = 1 << 4; // Affinity Routing Enable for Non-secure state
+pub const GICD_CTLR_ARE_S: u32 = 1 << 5; // Affinity Routing Enable for Secure state
+pub const GICD_CTLR_DS: u32 = 1 << 6; // Disable Security
+
+/// GICR_WAKER bits
+pub const GICR_WAKER_PROCESSOR_SLEEP: u32 = 1 << 1; // Processor sleep bit
+pub const GICR_WAKER_CHILDREN_ASLEEP: u32 = 1 << 2; // Children asleep bit
+
 /// Platform-specific constants
 pub const PLATFORM_CLUSTER_COUNT: u32 = 4;
 pub const PLATFORM_MAX_CPUS_PER_CLUSTER: u32 = 8;
 
-/// GIC Driver for S32G3 secondary cores
-pub struct GicDriver;
+/// Track if GIC has been initialized
+static GIC_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
-impl GicDriver {
+/// GICv3 Driver for S32G3 secondary cores
+pub struct GicV3Driver;
+
+impl GicV3Driver {
     /// Get the CPU's affinity value at the specified level
     #[inline(always)]
     fn mpidr_afflvl_val(mpidr: u64, level: u32) -> u32 {
@@ -109,89 +141,175 @@ impl GicDriver {
         Self::plat_core_pos_by_mpidr(mpidr)
     }
     
-    /// Get the current CPU ID from MPIDR_EL1 register
-    /// This is a simplified version that just returns the core's Affinity Level 0
+    /// Get the current CPU's MPIDR_EL1 value
     #[inline(always)]
-    pub fn get_cpu_id() -> u32 {
-        match Self::plat_my_core_pos() {
-            Ok(core_pos) => core_pos,
-            Err(_) => {
-                // Fallback to basic method if the robust method fails
-                let mpidr: u64;
-                unsafe {
-                    asm!(
-                        "mrs {0}, mpidr_el1",
-                        "and {0}, {0}, #0xFF",
-                        out(reg) mpidr
-                    );
+    pub fn get_mpidr() -> u64 {
+        let mpidr: u64;
+        unsafe {
+            asm!(
+                "mrs {0}, mpidr_el1",
+                out(reg) mpidr
+            );
+        }
+        mpidr
+    }
+    
+    /// Calculate the Redistributor base address for the current core
+    fn get_gicr_base_for_core() -> u64 {
+        // In GICv3, each CPU has its own Redistributor
+        // We need to find the right one based on the core's affinity
+        
+        // Get current core's affinity
+        let mpidr = Self::get_mpidr();
+        
+        // Calculate core index
+        let core_pos = match Self::plat_core_pos_by_mpidr(mpidr) {
+            Ok(pos) => pos,
+            Err(_) => 0, // Default to first core on error
+        };
+        
+        // Get base address of this core's Redistributor
+        GICR_BASE + (core_pos as u64 * GICR_STRIDE)
+    }
+    
+    /// Enable the System Register interface for GICv3
+    fn enable_system_registers() {
+        unsafe {
+            // Enable system register access
+            let mut sre: u64;
+            asm!(
+                "mrs {0}, S3_0_C12_C12_5", // ICC_SRE_EL1
+                out(reg) sre
+            );
+            
+            // Set SRE bit to enable system register interface
+            sre |= ICC_SRE_EL1_SRE;
+            
+            asm!(
+                "msr S3_0_C12_C12_5, {0}", // ICC_SRE_EL1
+                "isb",
+                in(reg) sre
+            );
+            
+            // Ensure changes are visible
+            asm!("isb");
+        }
+    }
+    
+    /// Enable GICv3 Group 1 interrupts via ICC_IGRPEN1_EL1
+    fn enable_group1_interrupts() {
+        unsafe {
+            // Enable Group 1 interrupts
+            asm!(
+                "msr S3_0_C12_C12_7, {0}", // ICC_IGRPEN1_EL1
+                "isb",
+                in(reg) ICC_IGRPEN1_EL1_ENABLE
+            );
+        }
+    }
+    
+    /// Set the priority mask register (PMR)
+    fn set_priority_mask(priority: u64) {
+        unsafe {
+            asm!(
+                "msr S3_0_C4_C6_0, {0}", // ICC_PMR_EL1
+                "isb",
+                in(reg) priority
+            );
+        }
+    }
+    
+    /// Set the binary point register (BPR)
+    fn set_binary_point(bpr: u64) {
+        unsafe {
+            asm!(
+                "msr S3_0_C12_C12_3, {0}", // ICC_BPR1_EL1
+                "isb",
+                in(reg) bpr
+            );
+        }
+    }
+    
+    /// Wake up the Redistributor for this core
+    fn wake_redistributor(gicr_base: u64) {
+        unsafe {
+            // Read current WAKER register state
+            let waker = read_volatile((gicr_base + GICR_WAKER) as *const u32);
+            
+            // Clear ProcessorSleep bit to wake up the redistributor
+            if (waker & GICR_WAKER_PROCESSOR_SLEEP) != 0 {
+                let new_waker = waker & !GICR_WAKER_PROCESSOR_SLEEP;
+                write_volatile((gicr_base + GICR_WAKER) as *mut u32, new_waker);
+                
+                // Wait until redistributor is awake
+                loop {
+                    let status = read_volatile((gicr_base + GICR_WAKER) as *const u32);
+                    if (status & GICR_WAKER_CHILDREN_ASLEEP) == 0 {
+                        break;
+                    }
+                    // Simple delay - in a real system you might want a timeout
+                    for _ in 0..1000 {
+                        core::hint::spin_loop();
+                    }
                 }
-                mpidr as u32
             }
         }
     }
+    
+    /// Initialize SGIs and PPIs for this core
+    fn init_sgi_ppi(gicr_base: u64) {
+        unsafe {
+            let sgi_base = gicr_base + GICR_SGI_OFFSET;
+            
+            // Set all SGIs and PPIs to Group 1
+            write_volatile((sgi_base + GICR_IGROUPR0) as *mut u32, 0xFFFFFFFF);
+            
+            // Set priority for SGIs and PPIs (lower value = higher priority)
+            for i in 0..32 {
+                let offset = GICR_IPRIORITYR + (i / 4) * 4;
+                let shift = (i % 4) * 8;
+                let addr = sgi_base + offset;
+                
+                let prio = read_volatile(addr as *const u32);
+                let new_prio = (prio & !(0xFF << shift)) | (0x80 << shift); // Priority 0x80 (mid-range)
+                write_volatile(addr as *mut u32, new_prio);
+            }
+            
+            // Enable all SGIs and select PPIs
+            write_volatile((sgi_base + GICR_ISENABLER0) as *mut u32, 0xFFFFFFFF);
+        }
+    }
 
-    /// Initialize GIC for a secondary core
+    /// Initialize GICv3 for a secondary core
     pub fn init_secondary_core() {
         // Check if already initialized
         if GIC_INITIALIZED.load(Ordering::Relaxed) {
             return;
         }
         
-        // Get core position using the robust method
-        let core_pos = match Self::plat_my_core_pos() {
-            Ok(pos) => pos,
-            Err(_) => {
-                // Fallback to simple method if the robust method fails
-                Self::get_cpu_id()
-            }
-        };
+        // First, enable the System Register interface
+        Self::enable_system_registers();
         
-        // Calculate CPU interface target mask (bit position in the target register)
-        // This identifies which CPU within the cluster this core corresponds to
-        let cpu_id = core_pos & ((1 << S32_MPIDR_CPU_MASK_BITS) - 1);
+        // Get the Redistributor base address for this core
+        let gicr_base = Self::get_gicr_base_for_core();
         
-        unsafe {
-            // 1. Initialize CPU interface
-            
-            // Set priority mask to allow all interrupts
-            write_volatile((GIC_CPU_BASE + GICC_PMR) as *mut u32, 0xFF);
-            
-            // Set Binary Point Register for group priority
-            write_volatile((GIC_CPU_BASE + GICC_BPR) as *mut u32, 0x7);
-            
-            // Enable CPU interface - enable both Group 0 and Group 1 interrupts
-            write_volatile((GIC_CPU_BASE + GICC_CTLR) as *mut u32, 0x7);
-            
-            // 2. Enable this core's SGIs (Software Generated Interrupts)
-            // SGIs are typically IDs 0-15
-            // The ITARGETSR registers map 4 interrupt IDs per register, with 8 bits per ID
-            // Each byte in the register represents the target list for one interrupt
-            
-            for sgi_id in 0..16 {
-                // Calculate register offset: each register handles 4 interrupts
-                let reg_offset = (sgi_id / 4) * 4;
-                // Calculate byte position within the register (0, 1, 2, or 3)
-                let byte_offset = sgi_id % 4;
-                
-                // Get the address of the appropriate ITARGETSR register
-                let reg_addr = GIC_DIST_BASE + GICD_ITARGETSR + reg_offset as u64;
-                
-                // Read current targets for this register
-                let mut targets = read_volatile(reg_addr as *const u32);
-                
-                // Set the bit corresponding to this CPU for the specific SGI
-                // Each byte position has 8 bits for up to 8 CPUs
-                let byte_shift = byte_offset * 8;
-                let cpu_mask = (1u32 << cpu_id) << byte_shift;
-                
-                // Update the target register
-                targets |= cpu_mask;
-                write_volatile(reg_addr as *mut u32, targets);
-            }
-            
-            // Mark as initialized
-            GIC_INITIALIZED.store(true, Ordering::Relaxed);
-        }
+        // Wake up the Redistributor
+        Self::wake_redistributor(gicr_base);
+        
+        // Initialize SGIs and PPIs
+        Self::init_sgi_ppi(gicr_base);
+        
+        // Set priority mask to allow all but the highest priority interrupts
+        Self::set_priority_mask(0xF0);
+        
+        // Set binary point for group priority
+        Self::set_binary_point(0);
+        
+        // Enable Group 1 interrupts
+        Self::enable_group1_interrupts();
+        
+        // Mark as initialized
+        GIC_INITIALIZED.store(true, Ordering::Relaxed);
     }
 
     /// Enable interrupts for the secondary core
@@ -218,118 +336,195 @@ impl GicDriver {
         }
     }
 
-    /// Acknowledge an interrupt
+    /// Acknowledge an interrupt (get its ID)
     #[inline(always)]
     pub fn acknowledge_interrupt() -> u32 {
+        let iar: u64;
         unsafe {
-            read_volatile((GIC_CPU_BASE + GICC_IAR) as *const u32)
+            asm!(
+                "mrs {0}, S3_0_C12_C12_0", // ICC_IAR1_EL1
+                out(reg) iar
+            );
         }
+        iar as u32 & 0xFFFFFF // Mask to get interrupt ID bits
     }
 
     /// End an interrupt
     #[inline(always)]
     pub fn end_interrupt(interrupt_id: u32) {
         unsafe {
-            write_volatile((GIC_CPU_BASE + GICC_EOIR) as *mut u32, interrupt_id);
+            asm!(
+                "msr S3_0_C12_C12_1, {0}", // ICC_EOIR1_EL1
+                "isb",
+                in(reg) interrupt_id as u64
+            );
         }
     }
-
-    /// Generate a software interrupt to another core using core position
-    pub fn send_sgi_to_core(target_core_pos: u32, sgi_id: u8) -> Result<(), &'static str> {
+    
+    /// Set priority for an SGI interrupt
+    pub fn set_sgi_priority(gicr_base: u64, sgi_id: u8, priority: u8) {
         if sgi_id > 15 {
-            // SGIs are IDs 0-15
-            return Err("Invalid SGI ID: must be 0-15");
-        }
-        
-        // Extract the CPU ID from the core position
-        // This gets the position within the cluster (0-7 typically)
-        let target_cpu = target_core_pos & ((1 << S32_MPIDR_CPU_MASK_BITS) - 1);
-        
-        if target_cpu >= PLATFORM_MAX_CPUS_PER_CLUSTER {
-            return Err("Invalid target CPU ID");
-        }
-        
-        // Create target CPU mask (1 bit per target CPU)
-        let target_cpu_mask = 1u8 << target_cpu;
-        
-        // Format SGIR value:
-        // Bits 0-3: SGI ID
-        // Bit 15: Use target list (1) vs. all but self (0)
-        // Bits 16-23: Target list (one bit per CPU)
-        let sgi_value = (((target_cpu_mask as u32) & 0xFF) << 16) | 
-                        (1u32 << 15) |  // Use target list
-                        ((sgi_id as u32) & 0xF);
-
-        unsafe {
-            write_volatile((GIC_DIST_BASE + GICD_SGIR) as *mut u32, sgi_value);
-        }
-        
-        Ok(())
-    }
-    
-    /// Generate a software interrupt to a set of cores using a CPU mask
-    pub fn send_sgi(target_cpu_mask: u8, sgi_id: u8) -> Result<(), &'static str> {
-        if sgi_id > 15 {
-            // SGIs are IDs 0-15
-            return Err("Invalid SGI ID: must be 0-15");
-        }
-
-        // Format SGIR value:
-        // Bits 0-3: SGI ID
-        // Bit 15: Use target list (1) vs. all but self (0)
-        // Bits 16-23: Target list (one bit per CPU)
-        let sgi_value = (((target_cpu_mask as u32) & 0xFF) << 16) | 
-                        (1u32 << 15) |  // Use target list
-                        ((sgi_id as u32) & 0xF);
-
-        unsafe {
-            write_volatile((GIC_DIST_BASE + GICD_SGIR) as *mut u32, sgi_value);
-        }
-        
-        Ok(())
-    }
-    
-    /// Enable a specific interrupt
-    pub fn enable_interrupt(interrupt_id: u32) {
-        if interrupt_id >= 1024 {
-            return; // Invalid interrupt ID
+            return; // Invalid SGI ID
         }
         
         unsafe {
-            let reg_offset = (interrupt_id / 32) * 4;
-            let bit_offset = interrupt_id % 32;
-            let reg_addr = GIC_DIST_BASE + GICD_ISENABLER + reg_offset as u64;
+            let sgi_base = gicr_base + GICR_SGI_OFFSET;
+            let byte_offset = sgi_id as u64;
+            let reg_addr = sgi_base + GICR_IPRIORITYR + byte_offset;
             
-            let value = 1u32 << bit_offset;
-            write_volatile(reg_addr as *mut u32, value);
-        }
-    }
-    
-    /// Disable a specific interrupt
-    pub fn disable_interrupt(interrupt_id: u32) {
-        if interrupt_id >= 1024 {
-            return; // Invalid interrupt ID
-        }
-        
-        unsafe {
-            let reg_offset = (interrupt_id / 32) * 4;
-            let bit_offset = interrupt_id % 32;
-            let reg_addr = GIC_DIST_BASE + GICD_ICENABLER + reg_offset as u64;
-            
-            let value = 1u32 << bit_offset;
-            write_volatile(reg_addr as *mut u32, value);
-        }
-    }
-    
-    /// Set interrupt priority
-    pub fn set_priority(interrupt_id: u32, priority: u8) {
-        if interrupt_id >= 1024 {
-            return; // Invalid interrupt ID
-        }
-        
-        unsafe {
-            let reg_addr = GIC_DIST_BASE + GICD_IPRIORITYR + interrupt_id as u64;
+            // Each SGI has a byte-sized priority field
             write_volatile(reg_addr as *mut u8, priority);
         }
+    }
+    
+    /// Generate a software interrupt to a core using affinity routing
+    pub fn send_sgi_to_core(target_core_pos: u32, sgi_id: u8) -> Result<(), &'static str> {
+        if sgi_id > 15 {
+            return Err("Invalid SGI ID: must be 0-15");
+        }
+        
+        let cpu_id = target_core_pos & ((1 << S32_MPIDR_CPU_MASK_BITS) - 1);
+        let cluster_id = target_core_pos >> S32_MPIDR_CPU_MASK_BITS;
+        
+        // Validate CPU can be represented in 4-bit Aff0 field
+        if cpu_id > 15 {
+            return Err("CPU ID exceeds maximum Aff0 value (15)");
+        }
+        
+        // Correct register format:
+        // [63:48] - Aff3 (0)
+        // [47:44] - Reserved (0)
+        // [40]    - IRM (0 for targeted SGI)
+        // [39:32] - Aff2 (0)
+        // [31:24] - INTID (SGI ID)
+        // [23:16] - Aff1 (Cluster)
+        // [15:0]  - Target List (1 << CPU)
+        let sgi_value = ((sgi_id as u64) << 24) |
+                        ((cluster_id as u64) << 16) |
+                        (1u64 << cpu_id);
+        
+        unsafe {
+            asm!(
+                "msr S3_0_C12_C11_5, {0}", // ICC_SGI1R_EL1
+                "isb",
+                in(reg) sgi_value
+            );
+        }
+        
+        Ok(())
+    }
+    
+    /// Send SGI to all cores in the system
+    pub fn send_sgi_to_all(sgi_id: u8) -> Result<(), &'static str> {
+        if sgi_id > 15 {
+            // SGIs are IDs 0-15
+            return Err("Invalid SGI ID: must be 0-15");
+        }
+        
+        // To target all CPUs in GICv3:
+        // - Set the IRM bit (bit 31) = 1 (1 << 31)
+        // - Target all security states (bit 30) = 0
+        // - Include sgi_id in bits 0-3
+        let sgi_value: u64 = (1u64 << 31) | (sgi_id as u64);
+        
+        unsafe {
+            asm!(
+                "msr S3_0_C12_C11_5, {0}", // ICC_SGI1R_EL1
+                "isb",
+                in(reg) sgi_value
+            );
+        }
+        
+        Ok(())
+    }
+    
+    /// Send SGI to all cores except the current one
+    pub fn send_sgi_to_others(sgi_id: u8) -> Result<(), &'static str> {
+        if sgi_id > 15 {
+            // SGIs are IDs 0-15
+            return Err("Invalid SGI ID: must be 0-15");
+        }
+        
+        // To target all CPUs except self in GICv3:
+        // - Set the IRM bit (bit 31) = 1 (1 << 31)
+        // - Set the exclude-self bit (bit 29) = 1 (1 << 29)
+        // - Include sgi_id in bits 0-3
+        let sgi_value: u64 = (1u64 << 31) | (1u64 << 29) | (sgi_id as u64);
+        
+        unsafe {
+            asm!(
+                "msr S3_0_C12_C11_5, {0}", // ICC_SGI1R_EL1
+                "isb",
+                in(reg) sgi_value
+            );
+        }
+        
+        Ok(())
+    }
+    
+    /// Enable a specific SPI interrupt
+    pub fn enable_spi(interrupt_id: u32) -> Result<(), &'static str> {
+        if interrupt_id < 32 || interrupt_id >= 1020 {
+            return Err("Invalid SPI ID: must be 32-1019");
+        }
+        
+        unsafe {
+            let reg_offset = ((interrupt_id / 32) * 4) as u64;
+            let bit_offset = interrupt_id % 32;
+            let reg_addr = GICD_BASE + GICD_ISENABLER + reg_offset;
+            
+            let value = 1u32 << bit_offset;
+            write_volatile(reg_addr as *mut u32, value);
+        }
+        
+        Ok(())
+    }
+    
+    /// Disable a specific SPI interrupt
+    pub fn disable_spi(interrupt_id: u32) -> Result<(), &'static str> {
+        if interrupt_id < 32 || interrupt_id >= 1020 {
+            return Err("Invalid SPI ID: must be 32-1019");
+        }
+        
+        unsafe {
+            let reg_offset = ((interrupt_id / 32) * 4) as u64;
+            let bit_offset = interrupt_id % 32;
+            let reg_addr = GICD_BASE + GICD_ICENABLER + reg_offset;
+            
+            let value = 1u32 << bit_offset;
+            write_volatile(reg_addr as *mut u32, value);
+        }
+        
+        Ok(())
+    }
+    
+    /// Set priority for an SPI interrupt
+    pub fn set_spi_priority(interrupt_id: u32, priority: u8) -> Result<(), &'static str> {
+        if interrupt_id < 32 || interrupt_id >= 1020 {
+            return Err("Invalid SPI ID: must be 32-1019");
+        }
+        
+        unsafe {
+            let byte_offset = interrupt_id as u64;
+            let reg_addr = GICD_BASE + GICD_IPRIORITYR + byte_offset;
+            
+            write_volatile(reg_addr as *mut u8, priority);
+        }
+        
+        Ok(())
+    }
+    
+    /// Set the target for an SPI interrupt using affinity routing
+    pub fn set_spi_target(interrupt_id: u32, target_aff: u64) -> Result<(), &'static str> {
+        if interrupt_id < 32 || interrupt_id >= 1020 {
+            return Err("Invalid SPI ID: must be 32-1019");
+        }
+        
+        unsafe {
+            let reg_addr = GICD_BASE + GICD_IROUTER + (interrupt_id as u64) * 8;
+            write_volatile(reg_addr as *mut u64, target_aff);
+        }
+        
+        Ok(())
     }
 }
