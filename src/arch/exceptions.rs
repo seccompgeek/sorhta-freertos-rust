@@ -54,7 +54,7 @@ pub extern "C" fn handle_el1_sync_exception() {
 pub extern "C" fn handle_el1_irq() {
     let iar = gic::GicV3Driver::acknowledge_interrupt();
     match iar {
-        0x8 => {
+        0x7 => {
             gic::GicV3Driver::end_interrupt(iar);
             let _ = gic::GicV3Driver::send_sgi_to_core(0, 0x7);
             let _ = gic::GicV3Driver::send_sgi_to_core(2, 0x7);
