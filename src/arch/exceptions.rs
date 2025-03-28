@@ -52,8 +52,19 @@ pub extern "C" fn handle_el1_sync_exception() {
 
 #[no_mangle]
 pub extern "C" fn handle_el1_irq() {
-    // uart::puts("EL1 IRQ received\n");
-    // gic::handle();
+    let iar = gic::GicV3Driver::acknowledge_interrupt();
+    match iar {
+        0x8 => {
+            gic::GicV3Driver::end_interrupt(iar);
+            let _ = gic::GicV3Driver::send_sgi_to_core(0, 0x7);
+            let _ = gic::GicV3Driver::send_sgi_to_core(2, 0x7);
+            let _ = gic::GicV3Driver::send_sgi_to_core(3, 0x7);
+            let _ = gic::GicV3Driver::send_sgi_to_core(4, 0x7);
+        }
+        _ => {
+
+        }
+    }
 }
 
 #[no_mangle]
