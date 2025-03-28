@@ -149,7 +149,10 @@ extern "C" fn kernel_init() -> ! {
         //     waiter -= 1;
         // }
         // //broadcast_custom_ipi();
-        let _ = gic::GicV3Driver::send_sgi_to_all(0x7);
+        let _ = gic::GicV3Driver::send_sgi_to_core(0, 0x7);
+        let _ = gic::GicV3Driver::send_sgi_to_core(2, 0x7);
+        let _ = gic::GicV3Driver::send_sgi_to_core(3, 0x7);
+        let _ = gic::GicV3Driver::send_sgi_to_core(4, 0x7);
         let ptr = 0xE0100000 as *mut u32;
         unsafe {
             *ptr = 0x2;
