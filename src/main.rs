@@ -4,6 +4,7 @@
 #![feature(format_args_nl)]
 #![feature(alloc_error_handler)]
 #![feature(panic_info_message)]
+#![feature(mem_copy_fn)]
 
 extern crate alloc;
 
@@ -14,18 +15,13 @@ use core::arch::global_asm;
 use core::arch::asm;
 use core::panic::PanicInfo;
 use core::ptr::write_volatile;
-
-use arch::aarch64::dsb;
-use arch::enable_interrupts;
 use arch::gic;
 // use arch::gic::broadcast_custom_ipi;
 // use arch::gic::request_ipi;
-use drivers::uart::console_init;
-use drivers::uart::print_init_complete;
-use drivers::uart::print_init_message;
-use drivers::uart::putc;
+
 // Import for heap allocator
 use linked_list_allocator::LockedHeap;
+use services::Worker;
 
 // Define a global allocator
 #[global_allocator]
@@ -40,6 +36,7 @@ fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
 mod arch;
 mod drivers;
 mod freertos;
+mod services;
 
 //global_asm!(include_str!("linflex_console.S"));
 // Boot section assembly code
@@ -143,26 +140,10 @@ extern "C" fn kernel_init() -> ! {
 
     //panic!();
 
-    //let mut waiter = 0x110000;
-    let mut i = 0;
+    Worker::init();
     loop {
-        // while waiter > 0 {
-        //     waiter -= 1;
-        // }
-        // //broadcast_custom_ipi();
-        if i < 10 {
-            let _ = gic::GicV3Driver::send_sgi_to_core(0, 0x7);
-            let _ = gic::GicV3Driver::send_sgi_to_core(2, 0x7);
-            let _ = gic::GicV3Driver::send_sgi_to_core(3, 0x7);
-            let _ = gic::GicV3Driver::send_sgi_to_core(4, 0x7);
-            i += 1;
-        }
-        
-        let ptr = 0xE0100000 as *mut u32;
-        unsafe {
-            *ptr = 0x2;
-            dsb();
-        }
+
+        Worker::do_work();
     }
 
     // console_init();
