@@ -81,10 +81,10 @@ impl Worker {
                                 write_count += 1;
                             }
                         }
-                        req.status.store(REQUEST_COMPLETED, Ordering::Relaxed);
+                        requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
                     }
                     _ => {
-                        req.status.store(REQUEST_FAILED, Ordering::Relaxed);
+                        requests[counter].status.store(REQUEST_FAILED, Ordering::Relaxed);
                     }
                 }
             }
