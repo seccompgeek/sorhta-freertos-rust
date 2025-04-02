@@ -5,11 +5,10 @@ use core::{mem, ptr::slice_from_raw_parts_mut};
 
 use aarch64_cpu::registers::{ESR_EL1::EC::WatchpointLowerEL, PAR_EL1::PA};
 use alloc::vec::Vec;
-use shmem::{Request, NUM_REQUEST_CORES, REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_MEMORY_BASE, REQUEST_READ, REQUEST_TAKEN, REQUEST_VALID, REQUEST_WRITE};
+use shmem::{Request, NUM_REQUEST_CORES, REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_MEMORY_BASE, REQUEST_READ, REQUEST_TAKEN, REQUEST_VALID, REQUEST_WRITE, SHMEM_BASE};
 use core::sync::atomic::Ordering;
 mod shmem;
 
-use crate::drivers::shmem::SHMEM_BASE;
 use crate::services::shmem::Settings;
 
 const TEMP_REQUEST_MEM: [u8; NUM_REQUEST_CORES*size_of::<Request>()] = [0; NUM_REQUEST_CORES*size_of::<Request>()];

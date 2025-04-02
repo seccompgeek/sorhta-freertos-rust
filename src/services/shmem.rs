@@ -10,7 +10,7 @@ pub const REQUEST_NONE: u32 = 0;
 pub const REQUEST_VALID: u32 = 1;
 pub const REQUEST_TAKEN: u32 = 2;
 pub const REQUEST_COMPLETED: u32 = 3;
-pub const REQUEST_FAILED: u32 = 0xFF;
+pub const REQUEST_FAILED: u32 = u32::MAX;
 
 pub const REQUEST_WRITE: u32 = 1;
 pub const REQUEST_READ: u32 = 2;
