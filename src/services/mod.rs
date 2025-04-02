@@ -5,7 +5,7 @@ use core::{mem, ptr::slice_from_raw_parts_mut};
 
 use aarch64_cpu::registers::{ESR_EL1::EC::WatchpointLowerEL, PAR_EL1::PA};
 use alloc::vec::Vec;
-use shmem::{Request, CORE_REQUEST_FLAGS_BASE, NUM_REQUEST_CORES, REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_MEMORY_BASE, REQUEST_READ, REQUEST_TAKEN, REQUEST_VALID, REQUEST_WRITE};
+use shmem::{Request, NUM_REQUEST_CORES, REQUEST_COMPLETED, REQUEST_FAILED, REQUEST_MEMORY_BASE, REQUEST_READ, REQUEST_TAKEN, REQUEST_VALID, REQUEST_WRITE};
 use core::sync::atomic::Ordering;
 mod shmem;
 
@@ -22,11 +22,6 @@ impl Worker {
     pub fn init() {
         let shmem_base_ptr = SHMEM_BASE as *mut u8;
         let settings = unsafe { &mut *(shmem_base_ptr as *mut Settings) };
-
-        let core_request_flags = unsafe {&mut *slice_from_raw_parts_mut(CORE_REQUEST_FLAGS_BASE as *mut AtomicU8, NUM_REQUEST_CORES)};
-        for core_flag in core_request_flags{
-            *core_flag = AtomicU8::new(0);
-        }
 
         let requests = unsafe {&mut *slice_from_raw_parts_mut(REQUEST_MEMORY_BASE as *mut Request, NUM_REQUEST_CORES)};
         for req in requests {
