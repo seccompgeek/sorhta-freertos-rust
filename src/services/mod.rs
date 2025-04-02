@@ -60,16 +60,16 @@ impl Worker {
         let mut iter = 0x1;
         while counter < NUM_REQUEST_CORES {
             if (iter & available_requests) != 0 {
-                let req = &mut temp_requests[counter];
+                let req = &temp_requests[counter];
                 match req.kind {
                     // READ
                     REQUEST_READ => {
                         let mut read_count = 0;
                         while read_count < req.buf_size {
-                            req.result[read_count] = unsafe {read_volatile((req.buf_addr + read_count) as *const u32)};
+                            requests[counter].result[read_count] = unsafe {read_volatile((req.buf_addr + read_count) as *const u32)};
                             read_count += 1;
                         }
-                        req.status.store(REQUEST_COMPLETED, Ordering::Relaxed);
+                        requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
                     }
 
                     // WRITE

@@ -1,4 +1,4 @@
-use core::{mem::{self, replace, size_of, size_of_val}, ptr::{self, slice_from_raw_parts_mut}, sync::atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, AtomicU8, Ordering}};
+use core::{mem::{self, size_of}, sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering}};
 
 
 pub const SHMEM_BASE: usize = 0xE200_0000;
