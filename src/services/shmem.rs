@@ -18,6 +18,7 @@ pub const REQUEST_READ: u32 = 2;
 #[repr(C)]
 pub struct Request {
     pub(crate) kind: u32,
+    __padding: [u8;4],
     pub(crate) buf_addr: usize,
     pub(crate) buf_size: usize,
     pub(crate) result: [u32; RESULT_BUFF_LENGTH],
@@ -26,8 +27,8 @@ pub struct Request {
 
 #[repr(C)]
 pub struct Settings {
-    initialized: AtomicU32,
     request_memory_base_addr: usize,
+    initialized: AtomicU32,
 }
 
 impl Settings {
