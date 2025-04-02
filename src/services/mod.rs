@@ -50,10 +50,12 @@ impl Worker {
                 temp_requests[index].buf_size = req.buf_size;
                 temp_requests[index].kind = req.kind;
                 temp_requests[index].result.copy_from_slice(&req.result);
-            }
-            if let Ok(_) = req.status.compare_exchange(REQUEST_VALID, REQUEST_TAKEN, Ordering::Acquire, Ordering::Relaxed) {
+                req.status.store(REQUEST_TAKEN, Ordering::Release);
                 available_requests |= 0x1 << index;
             }
+            // if let Ok(_) = req.status.compare_exchange(REQUEST_VALID, REQUEST_TAKEN, Ordering::Acquire, Ordering::Relaxed) {
+                
+            // }
         }
 
         let mut counter = 0;
