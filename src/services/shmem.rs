@@ -15,7 +15,7 @@ pub const REQUEST_FAILED: u32 = u32::MAX;
 pub const REQUEST_WRITE: u32 = 1;
 pub const REQUEST_READ: u32 = 2;
 
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct Request {
     pub(crate) kind: AtomicU32,
     __padding: [u8;4],
@@ -25,7 +25,7 @@ pub struct Request {
     pub(crate) status: AtomicU32,
 }
 
-#[repr(C)]
+#[repr(C, align(8))]
 pub struct Settings {
     request_memory_base_addr: usize,
     initialized: AtomicU32,
