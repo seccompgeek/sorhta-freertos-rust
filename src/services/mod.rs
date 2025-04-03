@@ -1,5 +1,5 @@
 use core::mem::size_of;
-use core::ptr::{read_volatile, write_volatile};
+use core::ptr::{self, read_volatile, write_volatile};
 use core::sync::atomic::{AtomicU32, AtomicU8};
 use core::{mem, ptr::slice_from_raw_parts_mut};
 
@@ -56,9 +56,9 @@ impl Worker {
                 Ordering::Relaxed
             ) {
                 // Copy request data to temp storage
-                temp_requests[index].buf_addr = req.buf_addr;
-                temp_requests[index].buf_size = req.buf_size;
-                temp_requests[index].kind = req.kind;
+                temp_requests[index].buf_addr = unsafe { read_volatile(ptr::from_ref(&req.buf_addr) as *const usize) };
+                temp_requests[index].buf_size = unsafe { read_volatile(ptr::from_ref(&req.buf_size) as *const usize)};
+                temp_requests[index].kind = unsafe { read_volatile(ptr::from_ref(&req.kind) as *const u32)};
                 temp_requests[index].result.copy_from_slice(&req.result);
                 
                 // Set the bit corresponding to this index
