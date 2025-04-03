@@ -65,7 +65,7 @@ impl Worker {
                 available_requests |= 1u64 << index;
             }
         }
-        
+        dsb();
         // Second pass: Process the identified requests
         // Only process indices that have their bit set in available_requests
         for index in 0..NUM_REQUEST_CORES {
