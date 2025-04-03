@@ -1,4 +1,4 @@
-use core::{mem::{self, size_of}, sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering}};
+use core::{mem::{self, size_of}, sync::atomic::{AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering}};
 
 
 pub const SHMEM_BASE: usize = 0xE200_0000;
@@ -17,11 +17,11 @@ pub const REQUEST_READ: u32 = 2;
 
 #[repr(C)]
 pub struct Request {
-    pub(crate) kind: u32,
+    pub(crate) kind: AtomicU32,
     __padding: [u8;4],
-    pub(crate) buf_addr: usize,
-    pub(crate) buf_size: usize,
-    pub(crate) result: [u32; RESULT_BUFF_LENGTH],
+    pub(crate) buf_addr: AtomicUsize,
+    pub(crate) buf_size: AtomicUsize,
+    pub(crate) result: [AtomicU32; RESULT_BUFF_LENGTH],
     pub(crate) status: AtomicU32,
 }
 

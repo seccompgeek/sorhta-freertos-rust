@@ -56,10 +56,10 @@ impl Worker {
                 Ordering::Relaxed
             ) {
                 // Copy request data to temp storage
-                temp_requests[index].buf_addr = unsafe { read_volatile(ptr::from_ref(&req.buf_addr) as *const usize) };
-                temp_requests[index].buf_size = unsafe { read_volatile(ptr::from_ref(&req.buf_size) as *const usize)};
-                temp_requests[index].kind = unsafe { read_volatile(ptr::from_ref(&req.kind) as *const u32)};
-                temp_requests[index].result.copy_from_slice(&req.result);
+                temp_requests[index].buf_addr.store(req.buf_addr.load(Ordering::Acquire), Ordering::Release);
+                temp_requests[index].buf_size.store(req.buf_size.load(Ordering::Acquire), Ordering::Release);
+                temp_requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release);
+                //temp_requests[index].result.copy_from_slice(&req.result);
                 
                 // Set the bit corresponding to this index
                 available_requests |= 1u64 << index;
@@ -71,15 +71,14 @@ impl Worker {
         for index in 0..NUM_REQUEST_CORES {
             if (available_requests & (1u64 << index)) != 0 {
                 let req = &temp_requests[index];
-                match req.kind {
+                match req.kind.load(Ordering::Acquire) {
                     REQUEST_READ => {
                         let mut read_count = 0;
-                        while read_count < req.buf_size {
+                        let total = req.buf_size.load(Ordering::Acquire);
+                        while read_count < total {
                             // Properly handle addressing for 32-bit words
-                            let addr = req.buf_addr + (read_count * 4) as usize; // Assuming 4 bytes per u32
-                            requests[index].result[read_count] = unsafe {
-                                read_volatile(addr as *const u32)
-                            };
+                            let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
+                            requests[index].result[read_count].store(unsafe {read_volatile(addr as *const u32)}, Ordering::Release); 
                             read_count += 1;
                         }
                         // Use Release ordering to ensure all reads are completed before status update
@@ -88,11 +87,12 @@ impl Worker {
                     
                     REQUEST_WRITE => {
                         let mut write_count = 0;
-                        while write_count < req.buf_size {
+                        let total = req.buf_size.load(Ordering::Acquire);
+                        while write_count < total {
                             // Properly handle addressing for 32-bit words
-                            let addr = req.buf_addr + (write_count * 4) as usize; // Assuming 4 bytes per u32
+                            let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
                             unsafe {
-                                write_volatile(addr as *mut u32, req.result[write_count]);
+                                write_volatile(addr as *mut u32, req.result[write_count].load(Ordering::Acquire));
                             }
                             write_count += 1;
                         }
@@ -102,8 +102,8 @@ impl Worker {
                     
                     _ => {
                         // Invalid request type
-                        requests[index].kind = req.kind;
-                        requests[index].result[0] = req.kind;
+                        requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release); 
+                        requests[index].result[0].store(req.kind.load(Ordering::Acquire), Ordering::Release);
                         requests[index].status.store(REQUEST_FAILED, Ordering::Release);
                     }
                 }
