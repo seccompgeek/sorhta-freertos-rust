@@ -41,6 +41,6 @@ impl Settings {
 
 impl Request {
     pub fn initialize(&mut self) {
-        self.status = AtomicU32::new(REQUEST_TAKEN);
+        self.status = AtomicU32::new(REQUEST_NONE);
     }
 }

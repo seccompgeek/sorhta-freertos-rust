@@ -1,6 +1,6 @@
 use core::mem::size_of;
 use core::ptr::{read_volatile, write_volatile};
-use core::sync::atomic::AtomicU8;
+use core::sync::atomic::{AtomicU32, AtomicU8};
 use core::{mem, ptr::slice_from_raw_parts_mut};
 
 use aarch64_cpu::registers::{ESR_EL1::EC::WatchpointLowerEL, PAR_EL1::PA};
@@ -52,7 +52,7 @@ impl Worker {
                 temp_requests[index].kind = req.kind;
                 temp_requests[index].result.copy_from_slice(&req.result);
                 
-                req.status.store(REQUEST_TAKEN, Ordering::Release);
+                req.status = AtomicU32::new(REQUEST_TAKEN); // .store(REQUEST_TAKEN, Ordering::Release);
                 dsb();
                 available_requests |= 0x1 << index;
             }
