@@ -43,62 +43,69 @@ impl Worker {
 
     pub fn do_work() {
         let temp_requests = Worker::get_temp_request_mem();
-        let mut available_requests = 0x0;
+        let mut available_indices = Vec::new();
         let requests = Worker::get_request_mem();
+        
+        // First pass: Identify and prepare valid requests
         for (index, req) in requests.iter_mut().enumerate() {
-            if req.status.load(Ordering::Acquire) == REQUEST_VALID {
+            // Atomically check and update status from VALID to TAKEN
+            if let Ok(_) = req.status.compare_exchange(
+                REQUEST_VALID, 
+                REQUEST_TAKEN, 
+                Ordering::Acquire, 
+                Ordering::Relaxed
+            ) {
+                // Copy request data to temp storage
                 temp_requests[index].buf_addr = req.buf_addr;
                 temp_requests[index].buf_size = req.buf_size;
                 temp_requests[index].kind = req.kind;
                 temp_requests[index].result.copy_from_slice(&req.result);
                 
-                req.status = AtomicU32::new(REQUEST_TAKEN); // .store(REQUEST_TAKEN, Ordering::Release);
-                dsb();
-                available_requests |= 0x1 << index;
+                // Track which indices have available work
+                available_indices.push(index);
             }
-            // if let Ok(_) = req.status.compare_exchange(REQUEST_VALID, REQUEST_TAKEN, Ordering::Acquire, Ordering::Relaxed) {
-                
-            // }
         }
-
-        let mut counter = 0;
-        let mut iter = 0x1;
-        while counter < NUM_REQUEST_CORES {
-            if (iter & available_requests) != 0 {
-                let req = &temp_requests[counter];
-                match req.kind {
-                    // READ
-                    REQUEST_READ => {
-                        let mut read_count = 0;
-                        while read_count < req.buf_size {
-                            requests[counter].result[read_count] = unsafe {read_volatile((req.buf_addr + read_count) as *const u32)};
-                            read_count += 1;
+        
+        // Second pass: Process the identified requests
+        for &index in &available_indices {
+            let req = &temp_requests[index];
+            match req.kind {
+                REQUEST_READ => {
+                    let mut read_count = 0;
+                    while read_count < req.buf_size {
+                        // Properly handle addressing for 32-bit words
+                        let addr = req.buf_addr + (read_count * 4) as usize; // Assuming 4 bytes per u32
+                        requests[index].result[read_count] = unsafe {
+                            read_volatile(addr as *const u32)
+                        };
+                        read_count += 1;
+                    }
+                    // Use Release ordering to ensure all reads are completed before status update
+                    requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+                },
+                
+                REQUEST_WRITE => {
+                    let mut write_count = 0;
+                    while write_count < req.buf_size {
+                        // Properly handle addressing for 32-bit words
+                        let addr = req.buf_addr + (write_count * 4) as usize; // Assuming 4 bytes per u32
+                        unsafe {
+                            write_volatile(addr as *mut u32, req.result[write_count]);
                         }
-                        requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
-                        dsb();
+                        write_count += 1;
                     }
-
-                    // WRITE
-                    REQUEST_WRITE => {
-                        let mut write_count = 0;
-                        while write_count < req.buf_size {
-                            unsafe {
-                                write_volatile((req.buf_addr + write_count) as *mut u32, req.result[write_count]);
-                                write_count += 1;
-                            }
-                        }
-                        requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
-                        dsb();
-                    }
-                    _ => {
-                        requests[counter].status.store(REQUEST_FAILED, Ordering::Relaxed);
-                        dsb();
-                    }
+                    // Use Release ordering to ensure all writes are visible before status update
+                    requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+                },
+                
+                _ => {
+                    // Invalid request type
+                    requests[index].status.store(REQUEST_FAILED, Ordering::Release);
                 }
             }
-
-            iter <<= 0x1;
-            counter += 1;
+            
+            // A single DSB after each request is completed
+            dsb();
         }
     }
 
