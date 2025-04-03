@@ -102,6 +102,7 @@ impl Worker {
                     
                     _ => {
                         // Invalid request type
+                        requests[index].result[0] = req.kind;
                         requests[index].status.store(REQUEST_FAILED, Ordering::Release);
                     }
                 }
