@@ -23,7 +23,7 @@ impl Worker {
         let shmem_base_ptr = SHMEM_BASE as *mut u8;
         let settings = unsafe { &mut *(shmem_base_ptr as *mut Settings) };
 
-        let requests = unsafe {&mut *slice_from_raw_parts_mut(REQUEST_MEMORY_BASE as *mut Request, NUM_REQUEST_CORES)};
+        let requests = Self::get_request_mem();
         for req in requests {
             req.initialize();
         }

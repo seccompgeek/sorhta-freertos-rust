@@ -3,7 +3,7 @@ use core::{mem::{self, size_of}, sync::atomic::{AtomicU32, AtomicU64, AtomicU8, 
 
 pub const SHMEM_BASE: usize = 0xE200_0000;
 pub const RESULT_BUFF_LENGTH: usize = 0x80;
-pub const NUM_REQUEST_CORES: usize = 0x7;
+pub const NUM_REQUEST_CORES: usize = 0x8;
 pub const REQUEST_MEMORY_BASE: usize = SHMEM_BASE + (((mem::size_of::<Settings>() + size_of::<usize>()-1)/size_of::<usize>())) * size_of::<usize>();
 
 pub const REQUEST_NONE: u32 = 0;
@@ -41,6 +41,6 @@ impl Settings {
 
 impl Request {
     pub fn initialize(&mut self) {
-        self.status = AtomicU32::new(REQUEST_NONE);
+        self.status = AtomicU32::new(REQUEST_TAKEN);
     }
 }
