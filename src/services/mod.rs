@@ -9,6 +9,7 @@ use shmem::{Request, NUM_REQUEST_CORES, REQUEST_COMPLETED, REQUEST_FAILED, REQUE
 use core::sync::atomic::Ordering;
 mod shmem;
 
+use crate::arch::dsb;
 use crate::services::shmem::Settings;
 
 const TEMP_REQUEST_MEM: [u8; NUM_REQUEST_CORES*size_of::<Request>()] = [0; NUM_REQUEST_CORES*size_of::<Request>()];
@@ -50,7 +51,9 @@ impl Worker {
                 temp_requests[index].buf_size = req.buf_size;
                 temp_requests[index].kind = req.kind;
                 temp_requests[index].result.copy_from_slice(&req.result);
+                
                 req.status.store(REQUEST_TAKEN, Ordering::Release);
+                dsb();
                 available_requests |= 0x1 << index;
             }
             // if let Ok(_) = req.status.compare_exchange(REQUEST_VALID, REQUEST_TAKEN, Ordering::Acquire, Ordering::Relaxed) {
@@ -72,6 +75,7 @@ impl Worker {
                             read_count += 1;
                         }
                         requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
+                        dsb();
                     }
 
                     // WRITE
@@ -84,9 +88,11 @@ impl Worker {
                             }
                         }
                         requests[counter].status.store(REQUEST_COMPLETED, Ordering::Relaxed);
+                        dsb();
                     }
                     _ => {
                         requests[counter].status.store(REQUEST_FAILED, Ordering::Relaxed);
+                        dsb();
                     }
                 }
             }
