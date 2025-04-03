@@ -47,7 +47,7 @@ impl Worker {
         let requests = Worker::get_request_mem();
         
         // First pass: Identify and prepare valid requests
-        for (index, req) in requests.iter_mut().enumerate() {
+        for (_, req) in requests.iter_mut().enumerate() {
             // Atomically check and update status from VALID to TAKEN
             if let Ok(_) = req.status.compare_exchange(
                 REQUEST_VALID, 
@@ -56,21 +56,6 @@ impl Worker {
                 Ordering::Relaxed
             ) {
                 // Copy request data to temp storage
-                temp_requests[index].buf_addr.store(req.buf_addr.load(Ordering::Acquire), Ordering::Release);
-                temp_requests[index].buf_size.store(req.buf_size.load(Ordering::Acquire), Ordering::Release);
-                temp_requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release);
-                //temp_requests[index].result.copy_from_slice(&req.result);
-                
-                // Set the bit corresponding to this index
-                available_requests |= 1u64 << index;
-            }
-        }
-        dsb();
-        // Second pass: Process the identified requests
-        // Only process indices that have their bit set in available_requests
-        for index in 0..NUM_REQUEST_CORES {
-            if (available_requests & (1u64 << index)) != 0 {
-                let req = &temp_requests[index];
                 match req.kind.load(Ordering::Acquire) {
                     REQUEST_READ => {
                         let mut read_count = 0;
@@ -78,11 +63,11 @@ impl Worker {
                         while read_count < total {
                             // Properly handle addressing for 32-bit words
                             let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
-                            requests[index].result[read_count].store(unsafe {read_volatile(addr as *const u32)}, Ordering::Release); 
+                            req.result[read_count].store(unsafe {read_volatile(addr as *const u32)}, Ordering::Release); 
                             read_count += 1;
                         }
                         // Use Release ordering to ensure all reads are completed before status update
-                        requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+                        req.status.store(REQUEST_COMPLETED, Ordering::Release);
                     },
                     
                     REQUEST_WRITE => {
@@ -97,21 +82,73 @@ impl Worker {
                             write_count += 1;
                         }
                         // Use Release ordering to ensure all writes are visible before status update
-                        requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+                        req.status.store(REQUEST_COMPLETED, Ordering::Release);
                     },
                     
                     _ => {
                         // Invalid request type
-                        requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release); 
-                        requests[index].result[0].store(req.kind.load(Ordering::Acquire), Ordering::Release);
-                        requests[index].status.store(REQUEST_FAILED, Ordering::Release);
+                        req.kind.store(req.kind.load(Ordering::Acquire), Ordering::Release); 
+                        req.result[0].store(req.kind.load(Ordering::Acquire), Ordering::Release);
+                        req.status.store(REQUEST_FAILED, Ordering::Release);
                     }
                 }
+                // temp_requests[index].buf_addr.store(req.buf_addr.load(Ordering::Acquire), Ordering::Release);
+                // temp_requests[index].buf_size.store(req.buf_size.load(Ordering::Acquire), Ordering::Release);
+                // temp_requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release);
+                // //temp_requests[index].result.copy_from_slice(&req.result);
                 
-                // A single DSB after each request is completed
+                // // Set the bit corresponding to this index
+                // available_requests |= 1u64 << index;
                 dsb();
             }
         }
+        
+        // // Second pass: Process the identified requests
+        // // Only process indices that have their bit set in available_requests
+        // for index in 0..NUM_REQUEST_CORES {
+        //     if (available_requests & (1u64 << index)) != 0 {
+        //         let req = &temp_requests[index];
+        //         match req.kind.load(Ordering::Acquire) {
+        //             REQUEST_READ => {
+        //                 let mut read_count = 0;
+        //                 let total = req.buf_size.load(Ordering::Acquire);
+        //                 while read_count < total {
+        //                     // Properly handle addressing for 32-bit words
+        //                     let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
+        //                     requests[index].result[read_count].store(unsafe {read_volatile(addr as *const u32)}, Ordering::Release); 
+        //                     read_count += 1;
+        //                 }
+        //                 // Use Release ordering to ensure all reads are completed before status update
+        //                 requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+        //             },
+                    
+        //             REQUEST_WRITE => {
+        //                 let mut write_count = 0;
+        //                 let total = req.buf_size.load(Ordering::Acquire);
+        //                 while write_count < total {
+        //                     // Properly handle addressing for 32-bit words
+        //                     let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
+        //                     unsafe {
+        //                         write_volatile(addr as *mut u32, req.result[write_count].load(Ordering::Acquire));
+        //                     }
+        //                     write_count += 1;
+        //                 }
+        //                 // Use Release ordering to ensure all writes are visible before status update
+        //                 requests[index].status.store(REQUEST_COMPLETED, Ordering::Release);
+        //             },
+                    
+        //             _ => {
+        //                 // Invalid request type
+        //                 requests[index].kind.store(req.kind.load(Ordering::Acquire), Ordering::Release); 
+        //                 requests[index].result[0].store(req.kind.load(Ordering::Acquire), Ordering::Release);
+        //                 requests[index].status.store(REQUEST_FAILED, Ordering::Release);
+        //             }
+        //         }
+                
+        //         // A single DSB after each request is completed
+        //         dsb();
+        //     }
+        // }
     }
 
 }
