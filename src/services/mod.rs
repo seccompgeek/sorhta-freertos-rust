@@ -46,7 +46,7 @@ impl Worker {
         let mut available_requests = 0x0;
         let requests = Worker::get_request_mem();
         for (index, req) in requests.iter_mut().enumerate() {
-            if req.status.load(Ordering::Relaxed) == REQUEST_VALID {
+            if req.status.load(Ordering::Acquire) == REQUEST_VALID {
                 temp_requests[index].buf_addr = req.buf_addr;
                 temp_requests[index].buf_size = req.buf_size;
                 temp_requests[index].kind = req.kind;
