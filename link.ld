@@ -35,6 +35,11 @@ SECTIONS
         *(.data .data.*)     /* Initialized data */
         . = ALIGN(8);
     } > RAM
+
+    /* MMU translation tables - 16KB aligned to 16KB boundary */
+    . = ALIGN(16384);
+    ttb0_base = .;
+    . += 16384;             /* 16KB for translation tables */
     
     .bss (NOLOAD) : {
         __bss_start = .;

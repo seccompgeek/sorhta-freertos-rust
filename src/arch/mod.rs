@@ -6,6 +6,7 @@ pub mod gic;
 pub mod exceptions;
 pub mod smc;
 pub mod svc;
+pub mod mmu;
 
 // Global variable to track initialization
 pub static INITIALIZED: AtomicBool = AtomicBool::new(false);
