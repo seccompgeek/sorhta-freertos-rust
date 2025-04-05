@@ -77,7 +77,7 @@ impl Worker {
                             // Properly handle addressing for 32-bit words
                             let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
                             unsafe {
-                                write_volatile(addr as *mut u32, req.result[write_count].load(Ordering::Acquire));
+                                write_volatile((addr + write_count) as *mut u32, req.result[write_count].load(Ordering::Acquire));
                             }
                             write_count += 1;
                         }
