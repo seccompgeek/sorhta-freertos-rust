@@ -10,6 +10,7 @@ use core::sync::atomic::Ordering;
 mod shmem;
 
 use crate::arch::dsb;
+use crate::arch::gic::GICR_WAKER_PROCESSOR_SLEEP;
 use crate::services::shmem::Settings;
 
 const TEMP_REQUEST_MEM: [u8; NUM_REQUEST_CORES*size_of::<Request>()] = [0; NUM_REQUEST_CORES*size_of::<Request>()];
@@ -81,7 +82,14 @@ impl Worker {
                             write_count += 1;
                         }
                         // Use Release ordering to ensure all writes are visible before status update
-                        req.status.store(REQUEST_COMPLETED, Ordering::Release);
+                        while let Err(_) = req.status.compare_exchange(
+                            REQUEST_TAKEN, 
+                            REQUEST_COMPLETED, 
+                            Ordering::Acquire, 
+                            Ordering::Relaxed
+                        ){
+                        } 
+                        //req.status.store(REQUEST_COMPLETED, Ordering::Release);
                     },
                     
                     _ => {
