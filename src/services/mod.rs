@@ -74,7 +74,7 @@ impl Worker {
                         let mut write_count = 0;
                         let total = req.buf_size.load(Ordering::Acquire);
                         let addr = req.buf_addr.load(Ordering::Acquire);
-                        while write_count < total {
+                        while write_count < total && write_count < req.result.len() {
                             unsafe {
                                 write_volatile((addr + write_count) as *mut u32, req.result[write_count].load(Ordering::Acquire));
                             }
