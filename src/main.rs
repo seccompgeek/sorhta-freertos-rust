@@ -121,9 +121,9 @@ extern "C" fn kernel_init() -> ! {
         
     //     ALLOCATOR.lock().init(heap_start, heap_size);
     // }
-    arch::disable_interrupts();
-    arch::init();
-    arch::enable_interrupts();
+    // arch::disable_interrupts();
+    // arch::init();
+    // arch::enable_interrupts();
     //console_init();
     //enable_interrupts();
     //gic::init();
@@ -140,11 +140,12 @@ extern "C" fn kernel_init() -> ! {
 
     //panic!();
 
-    Worker::init();
-    loop {
+    // Worker::init();
+    // loop {
 
-        //Worker::do_work();
-    }
+    //     //Worker::do_work();
+    // }
+    loop {}
 
     // console_init();
     // gic::init();
