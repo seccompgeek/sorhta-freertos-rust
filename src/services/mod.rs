@@ -39,7 +39,7 @@ impl Worker {
     fn get_request_mem() -> &'static mut [Request] {
         let temp_requests = unsafe {&mut *(slice_from_raw_parts_mut(REQUEST_MEMORY_BASE as *mut Request, NUM_REQUEST_CORES))};
         temp_requests
-    }
+    }   
 
     pub fn do_work() {
         let temp_requests = Worker::get_temp_request_mem();
