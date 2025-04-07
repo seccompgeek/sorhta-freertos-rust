@@ -140,10 +140,10 @@ extern "C" fn kernel_init() -> ! {
 
     //panic!();
 
-    Worker::init();
+    //Worker::init();
     loop {
 
-        Worker::do_work();
+        //Worker::do_work();
     }
 
     // console_init();
