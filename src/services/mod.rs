@@ -60,9 +60,9 @@ impl Worker {
                     REQUEST_READ => {
                         let mut read_count = 0;
                         let total = req.buf_size.load(Ordering::Acquire);
+                        let addr = req.buf_addr.load(Ordering::Acquire); // Assuming 4 bytes per u32
                         while read_count < total {
                             // Properly handle addressing for 32-bit words
-                            let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
                             req.result[read_count].store(unsafe {read_volatile(addr as *const u32)}, Ordering::Release); 
                             read_count += 1;
                         }
@@ -73,9 +73,8 @@ impl Worker {
                     REQUEST_WRITE => {
                         let mut write_count = 0;
                         let total = req.buf_size.load(Ordering::Acquire);
+                        let addr = req.buf_addr.load(Ordering::Acquire);
                         while write_count < total {
-                            // Properly handle addressing for 32-bit words
-                            let addr = req.buf_addr.load(Ordering::Acquire) as usize; // Assuming 4 bytes per u32
                             unsafe {
                                 write_volatile((addr + write_count) as *mut u32, req.result[write_count].load(Ordering::Acquire));
                             }
